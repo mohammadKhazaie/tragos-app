@@ -72,23 +72,25 @@ async function handleLogin() {
   btn.disabled = true;
 
   try {
-    const { data: invite, error: invErr } = await sb
+    const { data, error } = await sb
       .from('invite_codes')
       .select('*')
       .eq('code', code)
-      .maybeSingle();
+      .limit(1);
 
-    console.log('invite result:', invite, 'error:', invErr);
+    console.log('data:', data, 'error:', error);
 
-    if (invErr) {
-      showLoginError('خطا در اتصال: ' + invErr.message);
+    if (error) {
+      showLoginError('خطا: ' + error.message);
       return;
     }
 
-    if (!invite) {
+    if (!data || data.length === 0) {
       showLoginError('کد وارد شده معتبر نیست');
       return;
     }
+
+    const invite = data[0];
 
     if (invite.used && invite.device_id !== STATE.deviceId) {
       showLoginError('این کد قبلاً روی دستگاه دیگری ثبت شده است');
@@ -100,19 +102,19 @@ async function handleLogin() {
       return;
     }
 
-    const { data: user } = await sb
+    const { data: users } = await sb
       .from('users')
       .select('*')
       .eq('invite_id', invite.id)
-      .maybeSingle();
+      .limit(1);
 
-    if (user) {
-      STATE.user = user;
-      localStorage.setItem('tg_user_id', user.id);
+    if (users && users.length > 0) {
+      STATE.user = users[0];
+      localStorage.setItem('tg_user_id', users[0].id);
       await sb.from('users').update({
         device_id: STATE.deviceId,
         last_login: new Date().toISOString()
-      }).eq('id', user.id);
+      }).eq('id', users[0].id);
       showApp();
     }
   } catch(e) {
