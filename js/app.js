@@ -72,50 +72,57 @@ async function handleLogin() {
   btn.disabled = true;
 
   try {
-    // پیدا کردن کد در جدول invite_codes
     const { data: invite, error: invErr } = await sb
       .from('invite_codes')
       .select('*')
       .eq('code', code)
-      .single();
+      .maybeSingle();
 
-    if (invErr || !invite) {
+    console.log('invite result:', invite, 'error:', invErr);
+
+    if (invErr) {
+      showLoginError('خطا در اتصال: ' + invErr.message);
+      return;
+    }
+
+    if (!invite) {
       showLoginError('کد وارد شده معتبر نیست');
       return;
     }
+
     if (invite.used && invite.device_id !== STATE.deviceId) {
       showLoginError('این کد قبلاً روی دستگاه دیگری ثبت شده است');
       return;
     }
 
-    // اگر اولین بار است، صفحه ثبت‌نام نشان بده
     if (!invite.used) {
       showRegisterModal(invite.id, code);
       return;
     }
 
-    // اگر قبلاً ثبت شده، لاگین کن
     const { data: user } = await sb
       .from('users')
       .select('*')
       .eq('invite_id', invite.id)
-      .single();
+      .maybeSingle();
 
     if (user) {
-      // به‌روزرسانی device_id در صورت نیاز
       STATE.user = user;
       localStorage.setItem('tg_user_id', user.id);
-      await sb.from('users').update({ device_id: STATE.deviceId, last_login: new Date().toISOString() }).eq('id', user.id);
+      await sb.from('users').update({
+        device_id: STATE.deviceId,
+        last_login: new Date().toISOString()
+      }).eq('id', user.id);
       showApp();
     }
   } catch(e) {
+    console.error('Login error:', e);
     showLoginError('خطا در اتصال. لطفاً دوباره تلاش کنید');
   } finally {
     btn.innerHTML = 'ورود به تراگوس ⚔️';
     btn.disabled = false;
   }
 }
-
 /* ── Register Modal ── */
 function showRegisterModal(inviteId, code) {
   document.getElementById('reg-invite-id').value = inviteId;
