@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>پنل مدیریت — تراگوس</title>
+  <link rel="stylesheet" href="../css/style.css">
+  <style>
+    body { background: var(--void); }
+    .admin-layout { display: flex; min-height: 100vh; }
+    .admin-sidebar {
+      width: 220px; min-height: 100vh;
+      background: var(--night);
+      border-left: 1px solid var(--border);
+      padding: 0; position: fixed; right: 0; top: 0;
+      display: flex; flex-direction: column;
+      z-index: 50;
+    }
+    .admin-sidebar-logo {
+      padding: 20px; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .admin-sidebar-logo img { width: 36px; }
+    .admin-sidebar-logo span { font-size: 0.9rem; font-weight: 900; color: var(--gold); }
+    .admin-sidebar-label {
+      font-size: 0.65rem; color: var(--muted); text-transform: uppercase;
+      letter-spacing: 2px; padding: 16px 16px 6px; font-weight: 700;
+    }
+    .admin-nav-item {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 16px; cursor: pointer;
+      color: var(--parch); font-size: 0.85rem;
+      transition: all var(--transition);
+      border-right: 3px solid transparent;
+    }
+    .admin-nav-item:hover { background: var(--mid); color: var(--cream); }
+    .admin-nav-item.active { background: rgba(201,162,39,0.08); color: var(--gold); border-right-color: var(--gold); }
+    .admin-nav-item .nav-icon { font-size: 1.1rem; }
+    .admin-main {
+      flex: 1; margin-right: 220px;
+      padding: 24px;
+    }
+    .admin-topbar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 24px; padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .admin-section { display: none; }
+    .admin-section.active { display: block; }
+    .admin-section-title {
+      font-size: 1.3rem; font-weight: 900; color: var(--gold);
+      margin-bottom: 20px; display: flex; align-items: center; gap: 8px;
+    }
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th, .data-table td {
+      padding: 10px 14px; text-align: right;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+    .data-table th { background: var(--mid); color: var(--gold); font-weight: 700; }
+    .data-table td { color: var(--parch); }
+    .data-table tr:hover td { background: var(--smoke); }
+    .badge {
+      display: inline-block; padding: 2px 10px; border-radius: 20px;
+      font-size: 0.72rem; font-weight: 700;
+    }
+    .badge-gold { background: rgba(201,162,39,0.15); color: var(--gold); border: 1px solid rgba(201,162,39,0.3); }
+    .badge-red  { background: rgba(139,0,0,0.2); color: #ff9999; border: 1px solid var(--crimson); }
+    .badge-green{ background: rgba(0,180,0,0.15); color: #90EE90; border: 1px solid rgba(0,180,0,0.3); }
+    .admin-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px,1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card {
+      background: var(--night); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 20px; display: flex; align-items: center; gap: 16px;
+    }
+    .stat-icon { font-size: 2rem; }
+    .stat-val { font-size: 1.8rem; font-weight: 900; color: var(--gold); }
+    .stat-label { font-size: 0.8rem; color: var(--muted); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-row-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .admin-login {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at 50% 40%, rgba(139,0,0,0.15) 0%, transparent 60%),var(--void);
+    }
+    .admin-login-box {
+      background: var(--night); border: 1px solid var(--gold-dk);
+      border-radius: 16px; padding: 40px 36px; width: 360px; text-align: center;
+    }
+    textarea { min-height: 120px; resize: vertical; }
+    .code-display {
+      background: var(--mid); border: 1px solid var(--gold-dk);
+      border-radius: var(--radius-sm); padding: 16px;
+      font-family: monospace; font-size: 1.1rem; color: var(--gold);
+      text-align: center; letter-spacing: 3px; cursor: pointer;
+      transition: all var(--transition); margin-top: 12px;
+    }
+    .code-display:hover { background: var(--smoke); }
+    .score-input { width: 70px !important; display: inline-block; }
+  </style>
+</head>
+<body>
+
+<!-- ── Admin Login ── -->
+<div id="admin-login" class="admin-login">
+  <div class="admin-login-box">
+    <img src="../assets/logo.png" width="60" style="margin-bottom:12px;animation:pulse-glow 3s ease-in-out infinite">
+    <div style="font-size:1.3rem;font-weight:900;color:var(--gold);margin-bottom:4px">پنل مدیریت</div>
+    <div style="font-size:0.8rem;color:var(--muted);margin-bottom:24px">TRAGOS Admin Panel</div>
+    <div class="form-group">
+      <input type="password" id="admin-pass" placeholder="رمز عبور ادمین" style="text-align:center"
+             onkeydown="if(event.key==='Enter')adminLogin()">
+    </div>
+    <button class="btn btn-crimson btn-block" onclick="adminLogin()" style="margin-top:8px">ورود 👑</button>
+    <div id="admin-login-err" style="color:#ff9999;font-size:0.8rem;margin-top:10px;display:none"></div>
+  </div>
+</div>
+
+<!-- ── Admin Layout ── -->
+<div id="admin-app" style="display:none">
+  <div class="admin-layout">
+
+    <!-- Sidebar -->
+    <aside class="admin-sidebar">
+      <div class="admin-sidebar-logo">
+        <img src="../assets/logo.png">
+        <span>تراگوس ادمین</span>
+      </div>
+
+      <div class="admin-sidebar-label">مدیریت اصلی</div>
+      <div class="admin-nav-item active" onclick="showSection('dashboard')"><span class="nav-icon">📊</span>داشبورد</div>
+      <div class="admin-nav-item" onclick="showSection('users')"><span class="nav-icon">👑</span>کاربران</div>
+      <div class="admin-nav-item" onclick="showSection('invites')"><span class="nav-icon">🔑</span>کدهای دعوت</div>
+      <div class="admin-nav-item" onclick="showSection('scores')"><span class="nav-icon">⭐</span>امتیازدهی</div>
+
+      <div class="admin-sidebar-label">محتوا</div>
+      <div class="admin-nav-item" onclick="showSection('courses')"><span class="nav-icon">🎬</span>دوره‌ها</div>
+      <div class="admin-nav-item" onclick="showSection('codex')"><span class="nav-icon">📖</span>کدکس</div>
+      <div class="admin-nav-item" onclick="showSection('challenges')"><span class="nav-icon">⚔️</span>چالش‌ها</div>
+      <div class="admin-nav-item" onclick="showSection('gallery-admin')"><span class="nav-icon">🖼️</span>گالری</div>
+      <div class="admin-nav-item" onclick="showSection('tools-admin')"><span class="nav-icon">🛠️</span>ابزارها</div>
+
+      <div class="admin-sidebar-label">تنظیمات</div>
+      <div class="admin-nav-item" onclick="showSection('settings')"><span class="nav-icon">⚙️</span>تنظیمات</div>
+      <div class="admin-nav-item" onclick="showSection('about-admin')"><span class="nav-icon">ℹ️</span>درباره ما</div>
+
+      <div style="flex:1"></div>
+      <div class="admin-nav-item" onclick="adminLogout()" style="border-top:1px solid var(--border);color:var(--muted)"><span class="nav-icon">🚪</span>خروج</div>
+    </aside>
+
+    <!-- Main -->
+    <main class="admin-main">
+
+      <!-- ── DASHBOARD ── -->
+      <div class="admin-section active" id="sec-dashboard">
+        <div class="admin-section-title">📊 داشبورد</div>
+        <div class="admin-grid" id="stats-grid">
+          <div class="stat-card"><div class="stat-icon">👑</div><div><div class="stat-val" id="stat-users">-</div><div class="stat-label">کاربران فعال</div></div></div>
+          <div class="stat-card"><div class="stat-icon">🖼️</div><div><div class="stat-val" id="stat-gallery">-</div><div class="stat-label">آثار آپلود‌شده</div></div></div>
+          <div class="stat-card"><div class="stat-icon">🔑</div><div><div class="stat-val" id="stat-invites">-</div><div class="stat-label">کدهای فعال</div></div></div>
+          <div class="stat-card"><div class="stat-icon">❤️</div><div><div class="stat-val" id="stat-likes">-</div><div class="stat-label">مجموع لایک‌ها</div></div></div>
+        </div>
+        <div class="card">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">آخرین کاربران ثبت‌شده</div>
+          <div id="recent-users-table"></div>
+        </div>
+      </div>
+
+      <!-- ── USERS ── -->
+      <div class="admin-section" id="sec-users">
+        <div class="admin-section-title">👑 مدیریت کاربران</div>
+        <div class="card" style="margin-bottom:16px">
+          <input type="text" id="user-search" placeholder="جستجو بر اساس نام کاربری یا شماره..." oninput="searchUsers()">
+        </div>
+        <div class="card" style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr>
+              <th>#</th><th>نام کاربری</th><th>شماره تلفن</th>
+              <th>امتیاز</th><th>تاریخ عضویت</th><th>عملیات</th>
+            </tr></thead>
+            <tbody id="users-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── INVITES ── -->
+      <div class="admin-section" id="sec-invites">
+        <div class="admin-section-title">🔑 کدهای دعوت</div>
+        <div class="card" style="margin-bottom:16px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">ساخت کد جدید</div>
+          <button class="btn btn-gold" onclick="generateInviteCode()">🔑 ساخت کد اختصاصی جدید</button>
+          <div id="new-code-display" style="display:none">
+            <div class="code-display" id="new-code-text" onclick="copyCode()" title="کلیک برای کپی"></div>
+            <div style="font-size:0.75rem;color:var(--muted);text-align:center;margin-top:6px">کلیک کنید تا کپی شود</div>
+          </div>
+        </div>
+        <div class="card" style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr><th>کد</th><th>وضعیت</th><th>نام کاربری</th><th>تاریخ</th><th>عملیات</th></tr></thead>
+            <tbody id="invites-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── SCORES ── -->
+      <div class="admin-section" id="sec-scores">
+        <div class="admin-section-title">⭐ امتیازدهی</div>
+        <div class="card">
+          <div style="font-size:0.85rem;color:var(--muted);margin-bottom:16px">
+            برای امتیاز دادن، امتیاز را وارد کرده و دکمه ثبت را بزنید. امتیاز به حساب کاربر اضافه می‌شود.
+          </div>
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead><tr><th>نام کاربری</th><th>امتیاز فعلی</th><th>امتیاز جدید (۱-۱۰)</th><th>ثبت</th></tr></thead>
+              <tbody id="scores-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── COURSES ADMIN ── -->
+      <div class="admin-section" id="sec-courses">
+        <div class="admin-section-title">🎬 مدیریت دوره‌ها</div>
+
+        <!-- Add Chapter -->
+        <div class="card" style="margin-bottom:16px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">افزودن فصل جدید</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">شماره فصل</label><input type="number" id="ch-num" min="1" max="10" placeholder="۱"></div>
+            <div class="form-group"><label class="form-label">عنوان فارسی</label><input type="text" id="ch-title" placeholder="دروازه تراگوس"></div>
+          </div>
+          <div class="form-group"><label class="form-label">عنوان انگلیسی</label><input type="text" id="ch-title-en" placeholder="Gates of Tragos" style="direction:ltr"></div>
+          <button class="btn btn-gold btn-sm" onclick="addChapter()">➕ افزودن فصل</button>
+        </div>
+
+        <!-- Chapters List -->
+        <div class="card">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">فصل‌ها و قسمت‌ها</div>
+          <div id="admin-chapters-list"></div>
+        </div>
+
+        <!-- Add Episode Modal -->
+        <div class="modal-overlay" id="add-episode-modal">
+          <div class="modal-box">
+            <div class="modal-title">➕ افزودن قسمت <span class="modal-close" onclick="closeModal('add-episode-modal')">×</span></div>
+            <input type="hidden" id="ep-chapter-id">
+            <div class="form-row">
+              <div class="form-group"><label class="form-label">شماره قسمت</label><input type="number" id="ep-num" min="1"></div>
+              <div class="form-group"><label class="form-label">عنوان فارسی</label><input type="text" id="ep-title"></div>
+            </div>
+            <div class="form-group"><label class="form-label">عنوان انگلیسی</label><input type="text" id="ep-title-en" style="direction:ltr"></div>
+            <div class="form-group">
+              <label class="form-label">لینک ویدیو آپارات</label>
+              <input type="text" id="ep-video" placeholder="https://www.aparat.com/v/..." style="direction:ltr">
+              <div class="form-hint">لینک صفحه ویدیو در آپارات (نه embed)</div>
+            </div>
+            <div class="form-group"><label class="form-label">توضیحات</label><textarea id="ep-desc" rows="3"></textarea></div>
+            <button class="btn btn-gold btn-block" onclick="addEpisode()">✅ افزودن قسمت</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CODEX ADMIN ── -->
+      <div class="admin-section" id="sec-codex">
+        <div class="admin-section-title">📖 مدیریت کدکس</div>
+        <div class="card" style="margin-bottom:16px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">افزودن / ویرایش فصل کدکس</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">شماره فصل</label><input type="number" id="codex-num" min="1" max="10"></div>
+            <div class="form-group"><label class="form-label">عنوان فصل</label><input type="text" id="codex-title"></div>
+          </div>
+          <div class="form-group"><label class="form-label">📜 داستان فصل (The Lore)</label><textarea id="codex-lore" rows="5" placeholder="روایت داستانی این فصل..."></textarea></div>
+          <div class="form-group"><label class="form-label">📚 محتوای آموزشی (Knowledge)</label><textarea id="codex-knowledge" rows="8" placeholder="آموزش‌های این فصل..."></textarea></div>
+          <div class="form-group"><label class="form-label">لینک تصویر (اختیاری)</label><input type="text" id="codex-img" style="direction:ltr" placeholder="https://..."></div>
+          <div class="form-group">
+            <label class="form-label">وضعیت</label>
+            <select id="codex-locked">
+              <option value="false">🔓 باز — قابل مشاهده</option>
+              <option value="true">🔒 قفل — هنوز باز نشده</option>
+            </select>
+          </div>
+          <button class="btn btn-gold" onclick="saveCodexChapter()">💾 ذخیره فصل کدکس</button>
+        </div>
+        <div class="card"><div id="codex-admin-list"></div></div>
+      </div>
+
+      <!-- ── CHALLENGES ADMIN ── -->
+      <div class="admin-section" id="sec-challenges">
+        <div class="admin-section-title">⚔️ مدیریت چالش‌ها</div>
+        <div class="card" style="margin-bottom:16px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">افزودن چالش جدید</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">فصل</label><input type="number" id="chal-chapter" min="1" max="10"></div>
+            <div class="form-group"><label class="form-label">عنوان چالش</label><input type="text" id="chal-title"></div>
+          </div>
+          <div class="form-group"><label class="form-label">عنوان فصل</label><input type="text" id="chal-chapter-title" placeholder="دروازه تراگوس"></div>
+          <div class="form-group"><label class="form-label">توضیح چالش</label><textarea id="chal-desc" rows="5" placeholder="توضیح کامل چالش..."></textarea></div>
+          <div class="form-group"><label class="form-label">تصویر چالش (اختیاری)</label><input type="text" id="chal-img" style="direction:ltr" placeholder="https://..."></div>
+          <button class="btn btn-gold" onclick="addChallenge()">➕ افزودن چالش</button>
+        </div>
+        <div class="card"><div id="challenges-admin-list"></div></div>
+      </div>
+
+      <!-- ── GALLERY ADMIN ── -->
+      <div class="admin-section" id="sec-gallery-admin">
+        <div class="admin-section-title">🖼️ مدیریت گالری</div>
+        <div class="card" style="margin-bottom:16px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">آپلود اثر مدرس</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">فصل</label>
+              <select id="admin-gallery-chapter">
+                <option value="1">فصل ۱</option><option value="2">فصل ۲</option>
+                <option value="3">فصل ۳</option><option value="4">فصل ۴</option>
+                <option value="5">فصل ۵</option><option value="6">فصل ۶</option>
+                <option value="7">فصل ۷</option><option value="8">فصل ۸</option>
+                <option value="9">فصل ۹</option><option value="10">فصل ۱۰</option>
+              </select>
+            </div>
+            <div class="form-group"><label class="form-label">عنوان اثر</label><input type="text" id="admin-gallery-title"></div>
+          </div>
+          <div class="form-group"><label class="form-label">لینک مستقیم تصویر</label><input type="text" id="admin-gallery-url" style="direction:ltr" placeholder="https://..."></div>
+          <button class="btn btn-gold" onclick="addInstructorWork()">👑 افزودن اثر مدرس</button>
+        </div>
+        <div class="card" style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr><th>تصویر</th><th>کاربر</th><th>فصل</th><th>لایک</th><th>عملیات</th></tr></thead>
+            <tbody id="gallery-admin-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── TOOLS ADMIN ── -->
+      <div class="admin-section" id="sec-tools-admin">
+        <div class="admin-section-title">🛠️ مدیریت ابزارها</div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">دسته‌بندی</label><input type="text" id="tool-cat" placeholder="پرامپت‌نویسی"></div>
+            <div class="form-group"><label class="form-label">عنوان</label><input type="text" id="tool-title"></div>
+          </div>
+          <div class="form-group"><label class="form-label">توضیح</label><textarea id="tool-desc" rows="3"></textarea></div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">لینک فایل (اختیاری)</label><input type="text" id="tool-file" style="direction:ltr"></div>
+            <div class="form-group"><label class="form-label">لینک خارجی (اختیاری)</label><input type="text" id="tool-link" style="direction:ltr"></div>
+          </div>
+          <div class="form-group">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="tool-downloadable"> قابل دانلود
+            </label>
+          </div>
+          <button class="btn btn-gold" onclick="addTool()">➕ افزودن ابزار</button>
+        </div>
+        <div class="card"><div id="tools-admin-list"></div></div>
+      </div>
+
+      <!-- ── SETTINGS ── -->
+      <div class="admin-section" id="sec-settings">
+        <div class="admin-section-title">⚙️ تنظیمات</div>
+        <div class="card" style="margin-bottom:16px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">ویدیو آموزش اپ</div>
+          <div class="form-group">
+            <label class="form-label">لینک ویدیو آپارات</label>
+            <input type="text" id="tutorial-video-url" style="direction:ltr" placeholder="https://www.aparat.com/v/...">
+          </div>
+          <button class="btn btn-gold btn-sm" onclick="saveSetting('tutorial_video', document.getElementById('tutorial-video-url').value)">💾 ذخیره</button>
+        </div>
+        <div class="card">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">تغییر رمز ادمین</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">رمز جدید</label><input type="password" id="new-admin-pass"></div>
+            <div class="form-group"><label class="form-label">تکرار رمز</label><input type="password" id="new-admin-pass2"></div>
+          </div>
+          <button class="btn btn-crimson btn-sm" onclick="changeAdminPass()">🔒 تغییر رمز</button>
+        </div>
+      </div>
+
+      <!-- ── ABOUT ADMIN ── -->
+      <div class="admin-section" id="sec-about-admin">
+        <div class="admin-section-title">ℹ️ درباره ما</div>
+        <div class="card">
+          <div class="form-group"><label class="form-label">متن درباره ما (HTML پشتیبانی می‌شود)</label>
+            <textarea id="about-text" rows="10"></textarea>
+          </div>
+          <button class="btn btn-gold" onclick="saveSetting('about', document.getElementById('about-text').value)">💾 ذخیره</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/supabase.js"></script>
+<script>
+/* ══════════════════════════════════════════
+   ADMIN AUTH
+══════════════════════════════════════════ */
+const ADMIN_PASS_KEY = 'tg_admin_pass';
+const DEFAULT_PASS = 'Tragos@Admin2024';
+
+async function adminLogin() {
+  const pass = document.getElementById('admin-pass').value;
+  const { data: setting } = await sb.from('settings').select('value').eq('key', 'admin_password').single();
+  const correctPass = setting?.value || DEFAULT_PASS;
+
+  if (pass === correctPass) {
+    sessionStorage.setItem('tg_admin', '1');
+    document.getElementById('admin-login').style.display = 'none';
+    document.getElementById('admin-app').style.display = 'flex';
+    loadDashboard();
+  } else {
+    document.getElementById('admin-login-err').textContent = 'رمز عبور اشتباه است';
+    document.getElementById('admin-login-err').style.display = 'block';
+  }
+}
+
+function adminLogout() {
+  sessionStorage.removeItem('tg_admin');
+  location.reload();
+}
+
+// چک کردن لاگین ادمین
+window.addEventListener('DOMContentLoaded', () => {
+  if (sessionStorage.getItem('tg_admin') === '1') {
+    document.getElementById('admin-login').style.display = 'none';
+    document.getElementById('admin-app').style.display = 'flex';
+    loadDashboard();
+  }
+});
+
+/* ══════════════════════════════════════════
+   NAVIGATION
+══════════════════════════════════════════ */
+function showSection(name) {
+  document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.admin-nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(`sec-${name}`).classList.add('active');
+  event.currentTarget.classList.add('active');
+  loadSection(name);
+}
+
+function loadSection(name) {
+  switch(name) {
+    case 'dashboard':    loadDashboard(); break;
+    case 'users':        loadUsers(); break;
+    case 'invites':      loadInvites(); break;
+    case 'scores':       loadScores(); break;
+    case 'courses':      loadAdminCourses(); break;
+    case 'codex':        loadAdminCodex(); break;
+    case 'challenges':   loadAdminChallenges(); break;
+    case 'gallery-admin':loadAdminGallery(); break;
+    case 'tools-admin':  loadAdminTools(); break;
+    case 'settings':     loadSettings(); break;
+    case 'about-admin':  loadAboutAdmin(); break;
+  }
+}
+
+/* ══════════════════════════════════════════
+   DASHBOARD
+══════════════════════════════════════════ */
+async function loadDashboard() {
+  const [users, gallery, invites, likes] = await Promise.all([
+    sb.from('users').select('id, username, created_at', {count:'exact'}),
+    sb.from('gallery_items').select('id', {count:'exact'}),
+    sb.from('invite_codes').select('id', {count:'exact'}).eq('used', false),
+    sb.from('gallery_items').select('likes_count'),
+  ]);
+  document.getElementById('stat-users').textContent = users.count || 0;
+  document.getElementById('stat-gallery').textContent = gallery.count || 0;
+  document.getElementById('stat-invites').textContent = invites.count || 0;
+  const totalLikes = (likes.data || []).reduce((sum, i) => sum + (i.likes_count||0), 0);
+  document.getElementById('stat-likes').textContent = totalLikes;
+
+  const recent = (users.data || []).slice(-5).reverse();
+  document.getElementById('recent-users-table').innerHTML = `
+    <table class="data-table">
+      <thead><tr><th>نام کاربری</th><th>تاریخ عضویت</th></tr></thead>
+      <tbody>${recent.map(u=>`<tr><td><span class="badge badge-gold">@${u.username}</span></td><td>${new Date(u.created_at).toLocaleDateString('fa-IR')}</td></tr>`).join('')}</tbody>
+    </table>`;
+}
+
+/* ══════════════════════════════════════════
+   USERS
+══════════════════════════════════════════ */
+async function loadUsers() {
+  const { data } = await sb.from('users').select('*').order('created_at', {ascending:false});
+  renderUsersTable(data || []);
+}
+
+function renderUsersTable(users) {
+  document.getElementById('users-tbody').innerHTML = users.map((u,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><span class="badge badge-gold">@${u.username}</span></td>
+      <td>${u.phone||'-'}</td>
+      <td><span class="badge badge-green">⭐ ${u.score||0}</span></td>
+      <td>${new Date(u.created_at).toLocaleDateString('fa-IR')}</td>
+      <td>
+        <button class="btn btn-outline btn-sm" onclick="deleteUser('${u.id}','${u.username}')">🗑️ حذف</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function searchUsers() {
+  const q = document.getElementById('user-search').value.toLowerCase();
+  const { data } = await sb.from('users').select('*').order('created_at',{ascending:false});
+  const filtered = (data||[]).filter(u => u.username?.toLowerCase().includes(q) || u.phone?.includes(q));
+  renderUsersTable(filtered);
+}
+
+async function deleteUser(id, username) {
+  if (!confirm(`آیا از حذف @${username} مطمئنید؟`)) return;
+  await sb.from('users').delete().eq('id', id);
+  showToast('کاربر حذف شد', 'success');
+  loadUsers();
+}
+
+/* ══════════════════════════════════════════
+   INVITE CODES
+══════════════════════════════════════════ */
+async function generateInviteCode() {
+  const code = 'TRG-' + Math.random().toString(36).substr(2,4).toUpperCase() + Math.random().toString(36).substr(2,4).toUpperCase();
+  await sb.from('invite_codes').insert({ code, used: false, created_at: new Date().toISOString() });
+  document.getElementById('new-code-text').textContent = code;
+  document.getElementById('new-code-display').style.display = 'block';
+  showToast('کد جدید ساخته شد', 'success');
+  loadInvites();
+}
+
+function copyCode() {
+  const code = document.getElementById('new-code-text').textContent;
+  navigator.clipboard.writeText(code).then(() => showToast('کد کپی شد ✅', 'success'));
+}
+
+async function loadInvites() {
+  const { data } = await sb.from('invite_codes').select('*, users(username)').order('created_at',{ascending:false});
+  document.getElementById('invites-tbody').innerHTML = (data||[]).map(inv => `
+    <tr>
+      <td><code style="color:var(--gold);letter-spacing:2px">${inv.code}</code></td>
+      <td>${inv.used ? `<span class="badge badge-red">استفاده شده</span>` : `<span class="badge badge-green">فعال</span>`}</td>
+      <td>${inv.users?.username ? `@${inv.users.username}` : '-'}</td>
+      <td>${new Date(inv.created_at).toLocaleDateString('fa-IR')}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="deleteInvite('${inv.id}')">🗑️</button></td>
+    </tr>
+  `).join('');
+}
+
+async function deleteInvite(id) {
+  if (!confirm('حذف این کد؟')) return;
+  await sb.from('invite_codes').delete().eq('id', id);
+  showToast('کد حذف شد', 'success');
+  loadInvites();
+}
+
+/* ══════════════════════════════════════════
+   SCORES
+══════════════════════════════════════════ */
+async function loadScores() {
+  const { data } = await sb.from('users').select('id, username, score').order('score',{ascending:false});
+  document.getElementById('scores-tbody').innerHTML = (data||[]).map(u => `
+    <tr>
+      <td><span class="badge badge-gold">@${u.username}</span></td>
+      <td><strong style="color:var(--gold)">⭐ ${u.score||0}</strong></td>
+      <td><input type="number" min="1" max="10" class="score-input" id="score-${u.id}" placeholder="۱-۱۰" style="width:80px"></td>
+      <td><button class="btn btn-gold btn-sm" onclick="addScore('${u.id}')">✅ ثبت</button></td>
+    </tr>
+  `).join('');
+}
+
+async function addScore(userId) {
+  const input = document.getElementById(`score-${userId}`);
+  const pts = parseInt(input.value);
+  if (!pts || pts < 1 || pts > 10) { showToast('امتیاز باید بین ۱ تا ۱۰ باشد', 'error'); return; }
+  const { data: user } = await sb.from('users').select('score').eq('id', userId).single();
+  const newScore = (user?.score || 0) + pts;
+  await sb.from('users').update({ score: newScore }).eq('id', userId);
+  input.value = '';
+  showToast(`${pts} امتیاز اضافه شد ⭐`, 'success');
+  loadScores();
+}
+
+/* ══════════════════════════════════════════
+   COURSES ADMIN
+══════════════════════════════════════════ */
+async function addChapter() {
+  const num   = document.getElementById('ch-num').value;
+  const title = document.getElementById('ch-title').value;
+  const titleEn = document.getElementById('ch-title-en').value;
+  if (!num || !title) { showToast('شماره و عنوان فصل الزامی است', 'error'); return; }
+  await sb.from('chapters').upsert({ order_num: parseInt(num), title, title_en: titleEn });
+  showToast('فصل اضافه شد', 'success');
+  loadAdminCourses();
+}
+
+async function loadAdminCourses() {
+  const { data: chapters } = await sb.from('chapters').select('*, episodes(*)').order('order_num');
+  document.getElementById('admin-chapters-list').innerHTML = (chapters||[]).map(ch => `
+    <div class="card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div><strong style="color:var(--gold)">فصل ${ch.order_num}:</strong> ${ch.title}</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-gold btn-sm" onclick="openAddEpisode('${ch.id}')">➕ افزودن قسمت</button>
+          <button class="btn btn-outline btn-sm" onclick="deleteChapter('${ch.id}')">🗑️</button>
+        </div>
+      </div>
+      <div style="padding-right:12px">
+        ${(ch.episodes||[]).sort((a,b)=>a.order_num-b.order_num).map(ep=>`
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+            <span style="font-size:0.85rem;color:var(--parch)">قسمت ${ep.order_num}: ${ep.title}</span>
+            <button class="btn btn-outline btn-sm" onclick="deleteEpisode('${ep.id}')">🗑️</button>
+          </div>
+        `).join('') || '<div style="color:var(--muted);font-size:0.8rem">هنوز قسمتی اضافه نشده</div>'}
+      </div>
+    </div>
+  `).join('') || '<div class="empty-state"><div class="empty-text">فصلی اضافه نشده</div></div>';
+}
+
+function openAddEpisode(chapterId) {
+  document.getElementById('ep-chapter-id').value = chapterId;
+  document.getElementById('add-episode-modal').classList.add('open');
+}
+
+async function addEpisode() {
+  const chId  = document.getElementById('ep-chapter-id').value;
+  const num   = document.getElementById('ep-num').value;
+  const title = document.getElementById('ep-title').value;
+  const titleEn = document.getElementById('ep-title-en').value;
+  const video = document.getElementById('ep-video').value;
+  const desc  = document.getElementById('ep-desc').value;
+  if (!num || !title) { showToast('شماره و عنوان قسمت الزامی است', 'error'); return; }
+  await sb.from('episodes').insert({ chapter_id: chId, order_num: parseInt(num), title, title_en: titleEn, video_url: video, description: desc });
+  closeModal('add-episode-modal');
+  showToast('قسمت اضافه شد ✅', 'success');
+  loadAdminCourses();
+}
+
+async function deleteChapter(id) {
+  if (!confirm('فصل و تمام قسمت‌های آن حذف شود؟')) return;
+  await sb.from('episodes').delete().eq('chapter_id', id);
+  await sb.from('chapters').delete().eq('id', id);
+  showToast('فصل حذف شد', 'success');
+  loadAdminCourses();
+}
+
+async function deleteEpisode(id) {
+  if (!confirm('این قسمت حذف شود؟')) return;
+  await sb.from('episodes').delete().eq('id', id);
+  showToast('قسمت حذف شد', 'success');
+  loadAdminCourses();
+}
+
+/* ══════════════════════════════════════════
+   CODEX ADMIN
+══════════════════════════════════════════ */
+async function saveCodexChapter() {
+  const num  = document.getElementById('codex-num').value;
+  const title = document.getElementById('codex-title').value;
+  if (!num || !title) { showToast('شماره و عنوان الزامی است', 'error'); return; }
+  await sb.from('codex_chapters').upsert({
+    order_num: parseInt(num), title,
+    lore: document.getElementById('codex-lore').value,
+    knowledge: document.getElementById('codex-knowledge').value,
+    image_url: document.getElementById('codex-img').value,
+    is_locked: document.getElementById('codex-locked').value === 'true',
+  }, { onConflict: 'order_num' });
+  showToast('فصل کدکس ذخیره شد ✅', 'success');
+  loadAdminCodex();
+}
+
+async function loadAdminCodex() {
+  const { data } = await sb.from('codex_chapters').select('*').order('order_num');
+  document.getElementById('codex-admin-list').innerHTML = (data||[]).map(ch => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <span class="badge badge-gold" style="margin-left:8px">فصل ${ch.order_num}</span>
+        <span style="color:var(--parch)">${ch.title}</span>
+        <span style="margin-right:8px">${ch.is_locked ? '🔒' : '🔓'}</span>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-outline btn-sm" onclick="editCodexChapter(${ch.order_num})">✏️</button>
+        <button class="btn btn-outline btn-sm" onclick="deleteCodexChapter('${ch.id}')">🗑️</button>
+      </div>
+    </div>
+  `).join('') || '<div class="empty-state"><div class="empty-text">هنوز فصلی اضافه نشده</div></div>';
+}
+
+async function editCodexChapter(num) {
+  const { data } = await sb.from('codex_chapters').select('*').eq('order_num', num).single();
+  if (!data) return;
+  document.getElementById('codex-num').value = data.order_num;
+  document.getElementById('codex-title').value = data.title;
+  document.getElementById('codex-lore').value = data.lore || '';
+  document.getElementById('codex-knowledge').value = data.knowledge || '';
+  document.getElementById('codex-img').value = data.image_url || '';
+  document.getElementById('codex-locked').value = data.is_locked ? 'true' : 'false';
+  window.scrollTo(0, 0);
+}
+
+async function deleteCodexChapter(id) {
+  if (!confirm('حذف شود؟')) return;
+  await sb.from('codex_chapters').delete().eq('id', id);
+  showToast('حذف شد', 'success'); loadAdminCodex();
+}
+
+/* ══════════════════════════════════════════
+   CHALLENGES ADMIN
+══════════════════════════════════════════ */
+async function addChallenge() {
+  const ch = document.getElementById('chal-chapter').value;
+  const title = document.getElementById('chal-title').value;
+  if (!ch || !title) { showToast('فصل و عنوان الزامی است', 'error'); return; }
+  await sb.from('challenges').insert({
+    chapter_num: parseInt(ch),
+    chapter_title: document.getElementById('chal-chapter-title').value,
+    title, description: document.getElementById('chal-desc').value,
+    image_url: document.getElementById('chal-img').value,
+  });
+  showToast('چالش اضافه شد ✅', 'success'); loadAdminChallenges();
+}
+
+async function loadAdminChallenges() {
+  const { data } = await sb.from('challenges').select('*').order('chapter_num');
+  document.getElementById('challenges-admin-list').innerHTML = (data||[]).map(ch=>`
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div><span class="badge badge-gold" style="margin-left:8px">فصل ${ch.chapter_num}</span><span style="color:var(--parch)">${ch.title}</span></div>
+      <button class="btn btn-outline btn-sm" onclick="deleteChallenge('${ch.id}')">🗑️</button>
+    </div>
+  `).join('') || '<div class="empty-state"><div class="empty-text">چالشی اضافه نشده</div></div>';
+}
+
+async function deleteChallenge(id) {
+  if (!confirm('حذف شود؟')) return;
+  await sb.from('challenges').delete().eq('id', id);
+  showToast('حذف شد', 'success'); loadAdminChallenges();
+}
+
+/* ══════════════════════════════════════════
+   GALLERY ADMIN
+══════════════════════════════════════════ */
+async function addInstructorWork() {
+  const url = document.getElementById('admin-gallery-url').value;
+  const ch  = document.getElementById('admin-gallery-chapter').value;
+  const title = document.getElementById('admin-gallery-title').value;
+  if (!url || !ch) { showToast('لینک و فصل الزامی است', 'error'); return; }
+  await sb.from('gallery_items').insert({
+    file_url: url, file_type: 'image',
+    chapter_num: parseInt(ch),
+    chapter_title: document.getElementById('admin-gallery-chapter').selectedOptions[0].text,
+    title, is_instructor: true, likes_count: 0,
+    created_at: new Date().toISOString(),
+  });
+  showToast('اثر مدرس اضافه شد 👑', 'success'); loadAdminGallery();
+}
+
+async function loadAdminGallery() {
+  const { data } = await sb.from('gallery_items').select('*, users(username)').order('created_at',{ascending:false});
+  document.getElementById('gallery-admin-tbody').innerHTML = (data||[]).map(item=>`
+    <tr>
+      <td><img src="${item.file_url}" style="width:50px;height:50px;object-fit:cover;border-radius:6px"></td>
+      <td>${item.is_instructor ? '👑 مدرس' : `@${item.users?.username||'-'}`}</td>
+      <td>فصل ${item.chapter_num}</td>
+      <td>❤️ ${item.likes_count||0}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="deleteGalleryItem('${item.id}')">🗑️</button></td>
+    </tr>
+  `).join('');
+}
+
+async function deleteGalleryItem(id) {
+  if (!confirm('این اثر حذف شود؟')) return;
+  await sb.from('gallery_items').delete().eq('id', id);
+  showToast('حذف شد', 'success'); loadAdminGallery();
+}
+
+/* ══════════════════════════════════════════
+   TOOLS ADMIN
+══════════════════════════════════════════ */
+async function addTool() {
+  const title = document.getElementById('tool-title').value;
+  if (!title) { showToast('عنوان الزامی است', 'error'); return; }
+  await sb.from('tools').insert({
+    category: document.getElementById('tool-cat').value,
+    title, description: document.getElementById('tool-desc').value,
+    file_url: document.getElementById('tool-file').value,
+    link_url: document.getElementById('tool-link').value,
+    downloadable: document.getElementById('tool-downloadable').checked,
+  });
+  showToast('ابزار اضافه شد ✅', 'success'); loadAdminTools();
+}
+
+async function loadAdminTools() {
+  const { data } = await sb.from('tools').select('*').order('category');
+  document.getElementById('tools-admin-list').innerHTML = (data||[]).map(t=>`
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <span class="badge badge-gold" style="margin-left:8px">${t.category||'عمومی'}</span>
+        <span style="color:var(--parch)">${t.title}</span>
+        ${t.downloadable ? '<span style="font-size:0.7rem;color:var(--muted)"> • قابل دانلود</span>' : ''}
+      </div>
+      <button class="btn btn-outline btn-sm" onclick="deleteTool('${t.id}')">🗑️</button>
+    </div>
+  `).join('') || '<div class="empty-state"><div class="empty-text">ابزاری اضافه نشده</div></div>';
+}
+
+async function deleteTool(id) {
+  if (!confirm('حذف شود؟')) return;
+  await sb.from('tools').delete().eq('id', id);
+  showToast('حذف شد', 'success'); loadAdminTools();
+}
+
+/* ══════════════════════════════════════════
+   SETTINGS
+══════════════════════════════════════════ */
+async function loadSettings() {
+  const { data } = await sb.from('settings').select('*').eq('key', 'tutorial_video').single();
+  if (data) document.getElementById('tutorial-video-url').value = data.value || '';
+}
+
+async function saveSetting(key, value) {
+  await sb.from('settings').upsert({ key, value }, { onConflict: 'key' });
+  showToast('ذخیره شد ✅', 'success');
+}
+
+async function loadAboutAdmin() {
+  const { data } = await sb.from('settings').select('*').eq('key', 'about').single();
+  if (data) document.getElementById('about-text').value = data.value || '';
+}
+
+async function changeAdminPass() {
+  const p1 = document.getElementById('new-admin-pass').value;
+  const p2 = document.getElementById('new-admin-pass2').value;
+  if (!p1) { showToast('رمز جدید را وارد کنید', 'error'); return; }
+  if (p1 !== p2) { showToast('رمزها یکسان نیستند', 'error'); return; }
+  await saveSetting('admin_password', p1);
+  showToast('رمز تغییر کرد ✅', 'success');
+}
+
+/* ══════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════ */
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function showToast(msg, type='info', duration=3000) {
+  const wrap = document.getElementById('toast-wrap');
+  const icons = { success:'✅', error:'❌', info:'⚡' };
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span>${icons[type]||'⚡'}</span><span>${msg}</span>`;
+  wrap.appendChild(toast);
+  setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity 0.3s'; setTimeout(()=>toast.remove(),300); }, duration);
+}
+</script>
+</body>
+</html>

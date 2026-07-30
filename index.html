@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#060610">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <title>تراگوس — طلوع پادشاهی</title>
+  <link rel="icon" type="image/png" href="assets/logo.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════
+     LOADING SCREEN
+══════════════════════════════════════ -->
+<div id="loading-screen">
+  <img src="assets/logo.png" alt="Tragos" class="loading-logo">
+  <div class="loading-title">TRAGOS</div>
+  <div class="loading-bar-wrap">
+    <div class="loading-bar"></div>
+  </div>
+  <div style="font-size:0.75rem;color:var(--muted);letter-spacing:2px">طلوع پادشاهی</div>
+</div>
+
+<!-- ══════════════════════════════════════
+     LOGIN PAGE
+══════════════════════════════════════ -->
+<div id="login-page" style="display:none">
+  <!-- Background circles -->
+  <div class="login-bg-circle" style="width:400px;height:400px;top:10%;right:-100px"></div>
+  <div class="login-bg-circle" style="width:300px;height:300px;bottom:10%;left:-80px"></div>
+
+  <div class="login-box">
+    <img src="assets/logo.png" alt="Tragos" class="login-logo">
+    <div class="login-title">TRAGOS</div>
+    <div class="login-sub">طلوع پادشاهی — ورود به سرزمین</div>
+    <div class="login-divider"></div>
+
+    <div class="login-input-wrap">
+      <label class="login-label">کد اختصاصی خود را وارد کنید</label>
+      <input type="text" id="login-code" placeholder="مثال: TRG-A1B2C3"
+             style="text-align:center;letter-spacing:2px;font-weight:700"
+             onkeydown="if(event.key==='Enter') handleLogin()">
+    </div>
+
+    <div id="login-error" class="login-error"></div>
+
+    <button class="login-btn" id="login-btn" onclick="handleLogin()">
+      ورود به تراگوس ⚔️
+    </button>
+
+    <div style="margin-top:20px;font-size:0.75rem;color:var(--muted);text-align:center">
+      کد اختصاصی خود را از مدرس دریافت کنید
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     REGISTER MODAL
+══════════════════════════════════════ -->
+<div class="modal-overlay" id="register-modal">
+  <div class="modal-box">
+    <div class="modal-title">
+      👑 ثبت‌نام پادشاه
+      <span class="modal-close" onclick="closeModal('register-modal')">×</span>
+    </div>
+    <input type="hidden" id="reg-invite-id">
+    <input type="hidden" id="reg-code">
+
+    <div class="form-group">
+      <label class="form-label">نام پادشاهی (نام کاربری)</label>
+      <input type="text" id="reg-username" placeholder="مثال: DragonLord یا پادشاه_آتش">
+      <div class="form-hint">نام کاربری باید منحصربه‌فرد باشد — فارسی یا انگلیسی</div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">شماره تلفن</label>
+      <input type="tel" id="reg-phone" placeholder="09xxxxxxxxx" style="direction:ltr;text-align:right">
+    </div>
+
+    <button class="btn btn-crimson btn-block" id="reg-btn" onclick="handleRegister()">
+      ورود به تراگوس 👑
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     MAIN APP
+══════════════════════════════════════ -->
+<div id="app">
+
+  <!-- Top Bar -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <img src="assets/logo.png" alt="T" class="topbar-logo">
+      <span class="topbar-title">TRAGOS</span>
+    </div>
+    <div class="topbar-right">
+      <div class="user-score-badge">
+        <span class="score-icon">⚔️</span>
+        <span class="score-val" id="ui-score">0</span>
+        <span class="score-label">امتیاز</span>
+      </div>
+      <div class="user-name-badge" id="ui-username">پادشاه</div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="main-content">
+
+    <!-- ── COURSES PAGE ── -->
+    <div class="page active" id="page-courses">
+      <div class="page-header">
+        <div class="page-title">🎬 دوره‌ها</div>
+        <div class="page-subtitle">محتوای آموزشی تراگوس — TRAGOS Courses</div>
+      </div>
+
+      <!-- Video Player -->
+      <div class="video-player-wrap" id="video-player-wrap">
+        <div class="video-ep-title" id="video-ep-title"></div>
+        <iframe id="video-iframe" allowfullscreen allow="autoplay"></iframe>
+      </div>
+
+      <!-- Chapters -->
+      <div id="chapters-container">
+        <div class="empty-state"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- ── GALLERY PAGE ── -->
+    <div class="page" id="page-gallery">
+      <div class="page-header">
+        <div class="page-title">🖼️ گالری آثار</div>
+        <div class="page-subtitle">آثار پادشاهان تراگوس</div>
+      </div>
+
+      <!-- Filter -->
+      <div class="gallery-filter" id="gallery-filter">
+        <button class="filter-btn active" onclick="setGalleryFilter(this,'all')">همه</button>
+        <button class="filter-btn" onclick="setGalleryFilter(this,'1')">فصل ۱</button>
+        <button class="filter-btn" onclick="setGalleryFilter(this,'2')">فصل ۲</button>
+        <button class="filter-btn" onclick="setGalleryFilter(this,'3')">فصل ۳</button>
+        <button class="filter-btn" onclick="setGalleryFilter(this,'4')">فصل ۴</button>
+        <button class="filter-btn" onclick="setGalleryFilter(this,'5')">فصل ۵</button>
+      </div>
+
+      <!-- Upload Button -->
+      <button class="btn btn-gold btn-block" onclick="openUploadModal()" style="margin-bottom:16px">
+        ⬆️ آپلود اثر جدید
+      </button>
+
+      <!-- Gallery Grid -->
+      <div class="gallery-grid" id="gallery-container">
+        <div style="grid-column:span 2" class="empty-state"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- ── CODEX PAGE ── -->
+    <div class="page" id="page-codex">
+      <div class="page-header">
+        <div class="page-title">📖 کدکس تراگوس</div>
+        <div class="page-subtitle">Codex Tragos — راهنمای پادشاهان</div>
+      </div>
+      <div id="codex-container">
+        <div class="empty-state"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- ── CHALLENGES PAGE ── -->
+    <div class="page" id="page-challenges">
+      <div class="page-header">
+        <div class="page-title">⚔️ تمرینات و چالش‌ها</div>
+        <div class="page-subtitle">The Trials of Tragos</div>
+      </div>
+      <div id="challenges-container">
+        <div class="empty-state"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- ── TOOLS PAGE ── -->
+    <div class="page" id="page-tools">
+      <div class="page-header">
+        <div class="page-title">🛠️ ابزارهای کار</div>
+        <div class="page-subtitle">Arsenal of Tragos</div>
+      </div>
+      <div id="tools-container">
+        <div class="empty-state"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <!-- ── ABOUT PAGE ── -->
+    <div class="page" id="page-about">
+      <div class="about-hero">
+        <img src="assets/logo.png" alt="Tragos" class="about-logo">
+        <div class="about-title">TRAGOS</div>
+        <div class="about-sub">طلوع پادشاهی — WHERE KINGS ARE BORN</div>
+      </div>
+
+      <!-- Tutorial Video -->
+      <div id="tutorial-video-wrap" style="display:none;margin-bottom:20px">
+        <div class="page-header">
+          <div class="page-title" style="font-size:1rem">🎓 آموزش استفاده از اپ</div>
+        </div>
+        <div style="aspect-ratio:16/9;background:#000;border-radius:var(--radius);overflow:hidden">
+          <iframe id="tutorial-iframe" width="100%" height="100%" allowfullscreen style="border:none"></iframe>
+        </div>
+      </div>
+
+      <div class="gold-line"></div>
+      <div class="about-content" id="about-content">
+        <div class="empty-state"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <div class="nav-item active" data-page="courses">
+      <span class="nav-icon">🎬</span>
+      <span class="nav-label">دوره‌ها</span>
+    </div>
+    <div class="nav-item" data-page="challenges">
+      <span class="nav-icon">⚔️</span>
+      <span class="nav-label">چالش‌ها</span>
+    </div>
+    <div class="nav-item" data-page="codex">
+      <span class="nav-icon">📖</span>
+      <span class="nav-label">کدکس</span>
+    </div>
+    <div class="nav-item" data-page="gallery">
+      <span class="nav-icon">🖼️</span>
+      <span class="nav-label">گالری</span>
+    </div>
+    <div class="nav-item" data-page="tools">
+      <span class="nav-icon">🛠️</span>
+      <span class="nav-label">ابزارها</span>
+    </div>
+    <div class="nav-item" data-page="about">
+      <span class="nav-icon">ℹ️</span>
+      <span class="nav-label">درباره</span>
+    </div>
+  </nav>
+
+</div><!-- /app -->
+
+<!-- ══════════════════════════════════════
+     UPLOAD MODAL
+══════════════════════════════════════ -->
+<div class="modal-overlay" id="upload-modal">
+  <div class="modal-box">
+    <div class="modal-title">
+      ⬆️ آپلود اثر
+      <span class="modal-close" onclick="closeModal('upload-modal')">×</span>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">فایل (JPG, PNG, MP4 — حداکثر ۱۵ مگ)</label>
+      <div class="upload-area" onclick="document.getElementById('upload-file').click()"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="event.preventDefault();this.classList.remove('drag-over');document.getElementById('upload-file').files=event.dataTransfer.files;updateUploadPreview()">
+        <div class="upload-icon">📁</div>
+        <div class="upload-text" id="upload-area-text">کلیک کنید یا فایل را اینجا بکشید</div>
+        <div class="upload-hint">JPG • PNG • MP4 — حداکثر ۱۵MB</div>
+      </div>
+      <input type="file" id="upload-file" accept=".jpg,.jpeg,.png,.mp4" style="display:none" onchange="updateUploadPreview()">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">این اثر مربوط به کدام فصل است؟</label>
+      <select id="upload-chapter">
+        <option value="">انتخاب فصل...</option>
+        <option value="1">فصل ۱ — دروازه تراگوس</option>
+        <option value="2">فصل ۲ — روح سرزمین</option>
+        <option value="3">فصل ۳ — قلب سرزمین</option>
+        <option value="4">فصل ۴ — پادشاه</option>
+        <option value="5">فصل ۵ — ارتش تراگوس</option>
+        <option value="6">فصل ۶ — بخش‌های سرزمین</option>
+        <option value="7">فصل ۷ — موجودات تراگوس</option>
+        <option value="8">فصل ۸ — روایتگری بصری</option>
+        <option value="9">فصل ۹ — جادوی پیشرفته</option>
+        <option value="10">فصل ۱۰ — طلوع پادشاهی</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">عنوان (اختیاری)</label>
+      <input type="text" id="upload-title" placeholder="نام اثر شما...">
+    </div>
+
+    <button class="btn btn-gold btn-block" id="upload-btn" onclick="handleUpload()">
+      آپلود اثر 🔥
+    </button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast-wrap" id="toast-wrap"></div>
+
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabase.js"></script>
+<script src="js/app.js"></script>
+<script>
+function updateUploadPreview() {
+  const file = document.getElementById('upload-file').files[0];
+  if (file) {
+    document.getElementById('upload-area-text').textContent = `✅ ${file.name}`;
+  }
+}
+// Load about page when navigated to
+document.querySelector('[data-page="about"]').addEventListener('click', loadAbout);
+</script>
+</body>
+</html>
