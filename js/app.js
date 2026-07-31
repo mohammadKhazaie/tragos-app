@@ -1,131 +1,107 @@
 /* ═══════════════════════════════════════════
-   TRAGOS — App Core
+   TRAGOS — App Core v2
 ═══════════════════════════════════════════ */
 
-/* ── State ── */
-const STATE = {
-  user: null,
-  deviceId: null,
-  currentPage: 'courses',
-  currentEpisode: null,
-};
+const STATE = { user: null, deviceId: null, currentPage: 'courses' };
 
-/* ── DOM Ready ── */
 document.addEventListener('DOMContentLoaded', async () => {
   initDeviceId();
+  await loadSettings();
   await checkAuth();
   initNavigation();
   startLoadingBar();
 });
 
-/* ══════════════════════════════════════════
-   DEVICE ID — شناسه منحصربه‌فرد دستگاه
-══════════════════════════════════════════ */
+/* ── Device ID ── */
 function initDeviceId() {
   let did = localStorage.getItem('tg_device_id');
   if (!did) {
-    did = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    did = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2,9);
     localStorage.setItem('tg_device_id', did);
   }
   STATE.deviceId = did;
 }
 
 /* ══════════════════════════════════════════
-   AUTH
+   AUTH — با پشتیبانی لینک اختصاصی
 ══════════════════════════════════════════ */
 async function checkAuth() {
-  const userId = localStorage.getItem('tg_user_id');
-  if (!userId) {
-    showLoginPage();
+  // چک لینک اختصاصی در URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const linkCode = urlParams.get('invite');
+  if (linkCode) {
+    history.replaceState({}, '', window.location.pathname);
+    await processInviteCode(linkCode);
     return;
   }
-  // بررسی که این device مجاز است
-  const { data, error } = await sb
-    .from('users')
-    .select('*')
-    .eq('id', userId)
-    .eq('device_id', STATE.deviceId)
-    .single();
 
-  if (error || !data) {
+  // چک لاگین ذخیره شده
+  const userId = localStorage.getItem('tg_user_id');
+  if (!userId) { showLoginPage(); return; }
+
+  const { data } = await sb.from('users').select('*').eq('id', userId).eq('device_id', STATE.deviceId).limit(1);
+  if (!data || data.length === 0) {
     localStorage.removeItem('tg_user_id');
     showLoginPage();
     return;
   }
-  STATE.user = data;
+  STATE.user = data[0];
   showApp();
 }
 
-/* ── Login با کد اختصاصی ── */
-async function handleLogin() {
-  const code = document.getElementById('login-code').value.trim();
-  const errEl = document.getElementById('login-error');
-  errEl.style.display = 'none';
+/* ── پردازش کد دعوت (از فرم یا لینک) ── */
+async function processInviteCode(code) {
+  const { data, error } = await sb.from('invite_codes').select('*').eq('code', code).limit(1);
 
-  if (!code) {
-    showLoginError('لطفاً کد اختصاصی خود را وارد کنید');
+  if (error || !data || data.length === 0) {
+    showLoginPage();
+    showLoginError('کد وارد شده معتبر نیست');
     return;
   }
 
-  const btn = document.getElementById('login-btn');
-  btn.innerHTML = '<span class="spinner"></span>';
-  btn.disabled = true;
+  const invite = data[0];
 
-  try {
-    const { data, error } = await sb
-      .from('invite_codes')
-      .select('*')
-      .eq('code', code)
-      .limit(1);
+  if (invite.used && invite.device_id !== STATE.deviceId) {
+    showLoginPage();
+    showLoginError('این کد قبلاً روی دستگاه دیگری ثبت شده است');
+    return;
+  }
 
-    console.log('data:', data, 'error:', error);
+  if (!invite.used) {
+    showLoginPage();
+    showRegisterModal(invite.id, code);
+    return;
+  }
 
-    if (error) {
-      showLoginError('خطا: ' + error.message);
-      return;
-    }
-
-    if (!data || data.length === 0) {
-      showLoginError('کد وارد شده معتبر نیست');
-      return;
-    }
-
-    const invite = data[0];
-
-    if (invite.used && invite.device_id !== STATE.deviceId) {
-      showLoginError('این کد قبلاً روی دستگاه دیگری ثبت شده است');
-      return;
-    }
-
-    if (!invite.used) {
-      showRegisterModal(invite.id, code);
-      return;
-    }
-
-    const { data: users } = await sb
-      .from('users')
-      .select('*')
-      .eq('invite_id', invite.id)
-      .limit(1);
-
-    if (users && users.length > 0) {
-      STATE.user = users[0];
-      localStorage.setItem('tg_user_id', users[0].id);
-      await sb.from('users').update({
-        device_id: STATE.deviceId,
-        last_login: new Date().toISOString()
-      }).eq('id', users[0].id);
-      showApp();
-    }
-  } catch(e) {
-    console.error('Login error:', e);
-    showLoginError('خطا در اتصال. لطفاً دوباره تلاش کنید');
-  } finally {
-    btn.innerHTML = 'ورود به تراگوس ⚔️';
-    btn.disabled = false;
+  // لاگین کاربر قبلی
+  const { data: users } = await sb.from('users').select('*').eq('invite_id', invite.id).limit(1);
+  if (users && users.length > 0) {
+    STATE.user = users[0];
+    localStorage.setItem('tg_user_id', users[0].id);
+    await sb.from('users').update({ device_id: STATE.deviceId, last_login: new Date().toISOString() }).eq('id', users[0].id);
+    showApp();
+  } else {
+    showLoginPage();
   }
 }
-/* ── Register Modal ── */
+
+/* ── Login ── */
+async function handleLogin() {
+  const code = document.getElementById('login-code').value.trim();
+  document.getElementById('login-error').style.display = 'none';
+  if (!code) { showLoginError('لطفاً کد اختصاصی خود را وارد کنید'); return; }
+
+  const btn = document.getElementById('login-btn');
+  btn.innerHTML = '<span class="spinner" style="width:20px;height:20px;display:inline-block"></span>';
+  btn.disabled = true;
+
+  await processInviteCode(code);
+
+  btn.innerHTML = get('login_btn_text', 'ورود به تراگوس ⚔️');
+  btn.disabled = false;
+}
+
+/* ── Register ── */
 function showRegisterModal(inviteId, code) {
   document.getElementById('reg-invite-id').value = inviteId;
   document.getElementById('reg-code').value = code;
@@ -136,46 +112,39 @@ async function handleRegister() {
   const username = document.getElementById('reg-username').value.trim();
   const phone    = document.getElementById('reg-phone').value.trim();
   const inviteId = document.getElementById('reg-invite-id').value;
-  const code     = document.getElementById('reg-code').value;
 
-  if (!username || !phone) { showToast('نام کاربری و شماره تلفن الزامی است', 'error'); return; }
-  if (phone.length < 10) { showToast('شماره تلفن معتبر نیست', 'error'); return; }
+  if (!username) { showToast('نام کاربری الزامی است', 'error'); return; }
+  if (!phone || phone.length < 10) { showToast('شماره تلفن معتبر نیست', 'error'); return; }
 
   const btn = document.getElementById('reg-btn');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>';
+  btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;display:inline-block"></span>';
 
   try {
-    // بررسی تکراری نبودن نام کاربری
-    const { data: existing } = await sb.from('users').select('id').eq('username', username).single();
-    if (existing) { showToast('این نام کاربری قبلاً استفاده شده', 'error'); return; }
+    const { data: existing } = await sb.from('users').select('id').eq('username', username).limit(1);
+    if (existing && existing.length > 0) { showToast('این نام کاربری قبلاً استفاده شده', 'error'); return; }
 
-    // ساخت کاربر جدید
     const { data: newUser, error } = await sb.from('users').insert({
-      username,
-      phone,
+      username, phone,
       invite_id: inviteId,
       device_id: STATE.deviceId,
       score: 0,
       created_at: new Date().toISOString(),
       last_login: new Date().toISOString(),
-    }).select().single();
+    }).select().limit(1);
 
     if (error) throw error;
 
-    // علامت‌گذاری کد به عنوان استفاده شده
     await sb.from('invite_codes').update({
-      used: true,
-      device_id: STATE.deviceId,
-      used_at: new Date().toISOString(),
+      used: true, device_id: STATE.deviceId, used_at: new Date().toISOString()
     }).eq('id', inviteId);
 
-    STATE.user = newUser;
-    localStorage.setItem('tg_user_id', newUser.id);
+    STATE.user = newUser[0];
+    localStorage.setItem('tg_user_id', newUser[0].id);
     document.getElementById('register-modal').classList.remove('open');
     showApp();
     showToast('خوش آمدی پادشاه! 👑', 'success');
   } catch(e) {
-    showToast('خطا در ثبت‌نام. دوباره تلاش کنید', 'error');
+    showToast('خطا در ثبت‌نام: ' + e.message, 'error');
   } finally {
     btn.disabled = false; btn.innerHTML = 'ورود به تراگوس 👑';
   }
@@ -183,12 +152,11 @@ async function handleRegister() {
 
 function showLoginError(msg) {
   const el = document.getElementById('login-error');
-  el.textContent = msg;
-  el.style.display = 'block';
+  el.textContent = msg; el.style.display = 'block';
 }
 
 /* ══════════════════════════════════════════
-   SHOW/HIDE PAGES
+   SHOW / HIDE
 ══════════════════════════════════════════ */
 function showLoginPage() {
   document.getElementById('loading-screen').style.display = 'none';
@@ -201,7 +169,7 @@ function showApp() {
   document.getElementById('login-page').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   updateUserUI();
-  loadCurrentPage('courses');
+  navigateTo('courses');
 }
 
 function updateUserUI() {
@@ -215,10 +183,7 @@ function updateUserUI() {
 ══════════════════════════════════════════ */
 function initNavigation() {
   document.querySelectorAll('.nav-item').forEach(item => {
-    item.addEventListener('click', () => {
-      const page = item.dataset.page;
-      if (page) navigateTo(page);
-    });
+    item.addEventListener('click', () => { if (item.dataset.page) navigateTo(item.dataset.page); });
   });
 }
 
@@ -226,28 +191,25 @@ function navigateTo(page) {
   STATE.currentPage = page;
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-
-  const pageEl = document.getElementById(`page-${page}`);
-  const navEl  = document.querySelector(`.nav-item[data-page="${page}"]`);
+  const pageEl = document.getElementById('page-' + page);
+  const navEl  = document.querySelector('.nav-item[data-page="' + page + '"]');
   if (pageEl) pageEl.classList.add('active');
   if (navEl)  navEl.classList.add('active');
-
-  loadCurrentPage(page);
-  window.scrollTo(0, 0);
+  loadPage(page);
+  window.scrollTo(0,0);
 }
 
-function loadCurrentPage(page) {
-  switch(page) {
-    case 'courses':    loadCourses(); break;
-    case 'gallery':    loadGallery(); break;
-    case 'codex':      loadCodex(); break;
-    case 'challenges': loadChallenges(); break;
-    case 'tools':      loadTools(); break;
-  }
+function loadPage(page) {
+  const map = {
+    courses: loadCourses, gallery: loadGallery,
+    codex: loadCodex, challenges: loadChallenges,
+    tools: loadTools,
+  };
+  if (map[page]) map[page]();
 }
 
 /* ══════════════════════════════════════════
-   LOADING SCREEN
+   LOADING
 ══════════════════════════════════════════ */
 function startLoadingBar() {
   setTimeout(() => {
@@ -257,45 +219,29 @@ function startLoadingBar() {
 }
 
 /* ══════════════════════════════════════════
-   TOAST NOTIFICATIONS
-══════════════════════════════════════════ */
-function showToast(msg, type = 'info', duration = 3000) {
-  const wrap = document.getElementById('toast-wrap');
-  const icons = { success: '✅', error: '❌', info: '⚡' };
-  const toast = document.createElement('div');
-  toast.className = `toast ${type}`;
-  toast.innerHTML = `<span>${icons[type]||'⚡'}</span><span>${msg}</span>`;
-  wrap.appendChild(toast);
-  setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity 0.3s'; setTimeout(()=>toast.remove(),300); }, duration);
-}
-
-/* ══════════════════════════════════════════
-   COURSES PAGE
+   COURSES
 ══════════════════════════════════════════ */
 async function loadCourses() {
   const container = document.getElementById('chapters-container');
   container.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
 
-  const { data: chapters } = await sb
-    .from('chapters')
-    .select('*, episodes(*)')
-    .order('order_num');
+  const { data: chapters } = await sb.from('chapters').select('*, episodes(*)').order('order_num');
 
   if (!chapters || chapters.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">📖</div><div class="empty-text">به زودی محتوای دوره اضافه می‌شود</div></div>';
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📖</div><div class="empty-text">${get('empty_courses','به زودی محتوا اضافه می‌شود')}</div></div>`;
     return;
   }
 
   container.innerHTML = chapters.map(ch => `
     <div class="chapter-block">
-      <div class="chapter-header" onclick="toggleChapter(this, '${ch.id}')">
+      <div class="chapter-header" onclick="toggleChapter(this,'${ch.id}')">
         <span class="chapter-num">فصل ${ch.order_num}</span>
         <span class="chapter-title">${ch.title}</span>
-        <span class="chapter-en">${ch.title_en || ''}</span>
+        ${ch.title_en ? `<span class="chapter-en">${ch.title_en}</span>` : ''}
         <span class="chapter-arrow">▼</span>
       </div>
       <div class="episodes-list" id="eps-${ch.id}">
-        ${(ch.episodes || []).sort((a,b)=>a.order_num-b.order_num).map(ep => `
+        ${(ch.episodes||[]).sort((a,b)=>a.order_num-b.order_num).map(ep=>`
           <div class="episode-item" onclick="playEpisode('${ep.id}','${ep.video_url||''}','${ep.title}')">
             <div class="episode-num">${ep.order_num}</div>
             <div class="episode-info">
@@ -312,66 +258,56 @@ async function loadCourses() {
 
 function toggleChapter(headerEl, chapterId) {
   headerEl.classList.toggle('open');
-  const list = document.getElementById(`eps-${chapterId}`);
-  list.classList.toggle('open');
+  document.getElementById('eps-' + chapterId).classList.toggle('open');
 }
 
 function playEpisode(id, videoUrl, title) {
   if (!videoUrl) { showToast('ویدیو این قسمت به زودی اضافه می‌شود', 'info'); return; }
   const wrap = document.getElementById('video-player-wrap');
   const iframe = document.getElementById('video-iframe');
-  const titleEl = document.getElementById('video-ep-title');
-
-  // تبدیل لینک آپارات به embed
   let embedUrl = videoUrl;
   if (videoUrl.includes('aparat.com/v/')) {
     const code = videoUrl.split('aparat.com/v/')[1].split(/[/?]/)[0];
     embedUrl = `https://www.aparat.com/video/video/embed/videohash/${code}/vt/frame`;
   }
-
   iframe.src = embedUrl;
-  titleEl.textContent = title;
+  document.getElementById('video-ep-title').textContent = title;
   wrap.classList.add('active');
   wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-  document.querySelectorAll('.episode-item').forEach(e => e.classList.remove('playing'));
-  STATE.currentEpisode = id;
 }
 
 /* ══════════════════════════════════════════
-   GALLERY PAGE
+   GALLERY
 ══════════════════════════════════════════ */
 async function loadGallery(filter = 'all') {
   const container = document.getElementById('gallery-container');
-  container.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
+  container.innerHTML = '<div style="grid-column:span 2" class="empty-state"><div class="spinner"></div></div>';
 
-  let query = sb.from('gallery_items')
-    .select('*, users(username, score)')
+  let query = sb.from('gallery_items').select('*, users(username)')
     .order('is_instructor', { ascending: false })
     .order('created_at', { ascending: false });
-
   if (filter !== 'all') query = query.eq('chapter_num', filter);
 
   const { data: items } = await query;
-
   if (!items || items.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🖼️</div><div class="empty-text">هنوز اثری آپلود نشده</div></div>';
+    container.innerHTML = `<div style="grid-column:span 2" class="empty-state"><div class="empty-icon">🖼️</div><div class="empty-text">${get('empty_gallery','هنوز اثری آپلود نشده')}</div></div>`;
     return;
   }
 
+  const likes = JSON.parse(localStorage.getItem('tg_likes') || '[]');
   container.innerHTML = items.map(item => `
-    <div class="gallery-item ${item.is_instructor ? 'instructor-work' : ''}" onclick="openGalleryItem('${item.id}')">
+    <div class="gallery-item ${item.is_instructor ? 'instructor-work' : ''}">
       <div class="gallery-img-wrap">
-        <img src="${item.file_url}" alt="${item.title||''}" loading="lazy" onerror="this.src='data:image/svg+xml,<svg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'200\\' height=\\'200\\'><rect fill=\\'%231A1A35\\'/><text x=\\'50%\\' y=\\'50%\\' fill=\\'%23666\\' text-anchor=\\'middle\\'>تصویر</text></svg>'">
+        <img src="${item.file_url}" alt="${item.title||''}" loading="lazy">
         ${item.is_instructor ? '<span class="instructor-badge">👑 مدرس</span>' : ''}
       </div>
       <div class="gallery-item-info">
-        <div class="gallery-item-user">@${item.users?.username || 'ناشناس'}</div>
-        <div class="gallery-item-chapter">فصل ${item.chapter_num} — ${item.chapter_title || ''}</div>
+        <div class="gallery-item-user">@${item.users?.username||'ناشناس'}</div>
+        <div class="gallery-item-chapter">فصل ${item.chapter_num} — ${item.chapter_title||''}</div>
         <div class="gallery-item-footer">
-          <button class="like-btn ${isLiked(item.id) ? 'liked' : ''}" onclick="event.stopPropagation(); toggleLike('${item.id}', this)">
+          <button class="like-btn ${likes.includes(item.id)?'liked':''}" onclick="toggleLike('${item.id}',this)">
             <span class="like-icon"></span>
-            <span class="like-count">${item.likes_count || 0}</span>
+            <span class="like-count">${item.likes_count||0}</span>
           </button>
           <span style="font-size:0.72rem;color:var(--muted)">${timeAgo(item.created_at)}</span>
         </div>
@@ -380,68 +316,48 @@ async function loadGallery(filter = 'all') {
   `).join('');
 }
 
-function isLiked(itemId) {
-  const likes = JSON.parse(localStorage.getItem('tg_likes') || '[]');
-  return likes.includes(itemId);
-}
-
 async function toggleLike(itemId, btn) {
   const likes = JSON.parse(localStorage.getItem('tg_likes') || '[]');
   const idx = likes.indexOf(itemId);
   const countEl = btn.querySelector('.like-count');
-
+  const current = parseInt(countEl.textContent) || 0;
   if (idx === -1) {
-    // Like
     likes.push(itemId);
     btn.classList.add('liked');
-    const current = parseInt(countEl.textContent) || 0;
     countEl.textContent = current + 1;
     await sb.from('gallery_items').update({ likes_count: current + 1 }).eq('id', itemId);
-    await sb.from('likes').insert({ user_id: STATE.user.id, item_id: itemId });
   } else {
-    // Unlike
     likes.splice(idx, 1);
     btn.classList.remove('liked');
-    const current = parseInt(countEl.textContent) || 1;
     countEl.textContent = Math.max(0, current - 1);
     await sb.from('gallery_items').update({ likes_count: Math.max(0, current - 1) }).eq('id', itemId);
-    await sb.from('likes').delete().eq('user_id', STATE.user.id).eq('item_id', itemId);
   }
   localStorage.setItem('tg_likes', JSON.stringify(likes));
 }
 
-function openGalleryItem(id) {
-  // نمایش تصویر بزرگ (در فاز بعد)
-}
-
-/* ── آپلود اثر ── */
-function openUploadModal() {
-  document.getElementById('upload-modal').classList.add('open');
-}
+function openUploadModal() { document.getElementById('upload-modal').classList.add('open'); }
 
 async function handleUpload() {
-  const file       = document.getElementById('upload-file').files[0];
+  const file = document.getElementById('upload-file').files[0];
   const chapterNum = document.getElementById('upload-chapter').value;
-  const title      = document.getElementById('upload-title').value.trim();
+  const title = document.getElementById('upload-title').value.trim();
 
   if (!file) { showToast('لطفاً یک فایل انتخاب کنید', 'error'); return; }
   if (!chapterNum) { showToast('لطفاً فصل را مشخص کنید', 'error'); return; }
   if (file.size > 15 * 1024 * 1024) { showToast('حجم فایل نباید بیشتر از ۱۵ مگابایت باشد', 'error'); return; }
-
   const allowed = ['image/jpeg','image/jpg','image/png','video/mp4'];
-  if (!allowed.includes(file.type)) { showToast('فرمت فایل مجاز نیست (JPG, PNG, MP4)', 'error'); return; }
+  if (!allowed.includes(file.type)) { showToast('فرمت فایل مجاز نیست', 'error'); return; }
 
   const btn = document.getElementById('upload-btn');
-  btn.disabled = true; btn.innerHTML = 'در حال آپلود... <span class="spinner" style="display:inline-block;width:16px;height:16px"></span>';
+  btn.disabled = true; btn.innerHTML = 'در حال آپلود...';
 
   try {
     const ext = file.name.split('.').pop();
     const path = `gallery/${STATE.user.id}/${Date.now()}.${ext}`;
-    const { data: uploaded, error: upErr } = await sb.storage.from('gallery').upload(path, file);
+    const { error: upErr } = await sb.storage.from('gallery').upload(path, file);
     if (upErr) throw upErr;
 
     const { data: urlData } = sb.storage.from('gallery').getPublicUrl(path);
-
     await sb.from('gallery_items').insert({
       user_id: STATE.user.id,
       file_url: urlData.publicUrl,
@@ -455,100 +371,87 @@ async function handleUpload() {
     });
 
     document.getElementById('upload-modal').classList.remove('open');
-    showToast('اثر شما با موفقیت آپلود شد ⚔️', 'success');
+    showToast('اثر شما آپلود شد ⚔️', 'success');
     loadGallery();
   } catch(e) {
-    showToast('خطا در آپلود. دوباره تلاش کنید', 'error');
+    showToast('خطا در آپلود: ' + e.message, 'error');
   } finally {
     btn.disabled = false; btn.innerHTML = 'آپلود اثر 🔥';
   }
 }
 
+function setGalleryFilter(btn, filter) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadGallery(filter);
+}
+
 /* ══════════════════════════════════════════
-   CODEX PAGE
+   CODEX
 ══════════════════════════════════════════ */
 async function loadCodex() {
   const container = document.getElementById('codex-container');
   container.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
-
-  const { data: chapters } = await sb
-    .from('codex_chapters')
-    .select('*')
-    .order('order_num');
-
-  if (!chapters || chapters.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">📖</div><div class="empty-text">کدکس تراگوس در حال آماده‌سازی است</div></div>';
+  const { data } = await sb.from('codex_chapters').select('*').order('order_num');
+  if (!data || data.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">📖</div><div class="empty-text">${get('empty_codex','کدکس در حال آماده‌سازی است')}</div></div>`;
     return;
   }
-
-  container.innerHTML = chapters.map(ch => `
+  container.innerHTML = data.map(ch => `
     <div class="codex-chapter">
-      <div class="codex-chapter-header" onclick="toggleCodex(this, '${ch.id}', ${ch.is_locked})">
+      <div class="codex-chapter-header" onclick="toggleCodexCh(this,'${ch.id}')">
         <div class="codex-ch-num">${ch.order_num}</div>
         <div class="codex-ch-title">${ch.title}</div>
         <span class="codex-locked">${ch.is_locked ? '🔒' : '📖'}</span>
       </div>
       <div class="codex-chapter-body" id="codex-body-${ch.id}">
         ${ch.is_locked ? '<div class="empty-state"><div class="empty-icon">🔒</div><div class="empty-text">این فصل هنوز باز نشده</div></div>' : `
-          ${ch.lore ? `<div class="codex-section"><div class="codex-section-title">⚔️ داستان فصل — The Lore</div><div class="codex-text">${ch.lore}</div></div>` : ''}
-          ${ch.knowledge ? `<div class="codex-section"><div class="codex-section-title">📜 آموزش — Knowledge</div><div class="codex-text">${ch.knowledge}</div></div>` : ''}
-          ${ch.image_url ? `<img src="${ch.image_url}" class="codex-img" alt="تصویر فصل">` : ''}
+          ${ch.lore ? `<div class="codex-section"><div class="codex-section-title">⚔️ داستان فصل</div><div class="codex-text">${ch.lore}</div></div>` : ''}
+          ${ch.knowledge ? `<div class="codex-section"><div class="codex-section-title">📜 آموزش</div><div class="codex-text">${ch.knowledge}</div></div>` : ''}
+          ${ch.image_url ? `<img src="${ch.image_url}" class="codex-img" alt="">` : ''}
         `}
       </div>
     </div>
   `).join('');
 }
 
-function toggleCodex(headerEl, chId, isLocked) {
-  const body = document.getElementById(`codex-body-${chId}`);
-  body.classList.toggle('open');
+function toggleCodexCh(headerEl, id) {
+  document.getElementById('codex-body-' + id).classList.toggle('open');
 }
 
 /* ══════════════════════════════════════════
-   CHALLENGES PAGE
+   CHALLENGES
 ══════════════════════════════════════════ */
 async function loadChallenges() {
   const container = document.getElementById('challenges-container');
   container.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
-
-  const { data: challenges } = await sb
-    .from('challenges')
-    .select('*')
-    .order('chapter_num');
-
-  if (!challenges || challenges.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">⚔️</div><div class="empty-text">چالش‌ها به زودی اضافه می‌شوند</div></div>';
+  const { data } = await sb.from('challenges').select('*').order('chapter_num');
+  if (!data || data.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚔️</div><div class="empty-text">${get('empty_challenges','چالش‌ها به زودی اضافه می‌شوند')}</div></div>`;
     return;
   }
-
-  container.innerHTML = challenges.map(ch => `
+  container.innerHTML = data.map(ch => `
     <div class="challenge-card">
       <div class="challenge-badge">⚔️ فصل ${ch.chapter_num} — ${ch.chapter_title||''}</div>
       <div class="challenge-title">${ch.title}</div>
-      <div class="challenge-desc">${ch.description}</div>
-      ${ch.image_url ? `<img src="${ch.image_url}" class="challenge-img" alt="تصویر چالش">` : ''}
+      <div class="challenge-desc">${ch.description||''}</div>
+      ${ch.image_url ? `<img src="${ch.image_url}" class="challenge-img" alt="">` : ''}
     </div>
   `).join('');
 }
 
 /* ══════════════════════════════════════════
-   TOOLS PAGE
+   TOOLS
 ══════════════════════════════════════════ */
 async function loadTools() {
   const container = document.getElementById('tools-container');
   container.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
-
-  const { data: tools } = await sb
-    .from('tools')
-    .select('*')
-    .order('category', 'title');
-
-  if (!tools || tools.length === 0) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🛠️</div><div class="empty-text">ابزارها به زودی اضافه می‌شوند</div></div>';
+  const { data } = await sb.from('tools').select('*').order('category');
+  if (!data || data.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-icon">🛠️</div><div class="empty-text">${get('empty_tools','ابزارها به زودی اضافه می‌شوند')}</div></div>`;
     return;
   }
-
-  container.innerHTML = `<div class="tools-grid">${tools.map(t => `
+  container.innerHTML = `<div class="tools-grid">${data.map(t=>`
     <div class="tool-card">
       <div class="tool-cat">${t.category||'عمومی'}</div>
       <div class="tool-title">${t.title}</div>
@@ -560,17 +463,17 @@ async function loadTools() {
 }
 
 /* ══════════════════════════════════════════
-   ABOUT / APP TUTORIAL
+   ABOUT
 ══════════════════════════════════════════ */
 async function loadAbout() {
-  const { data } = await sb.from('settings').select('*').eq('key', 'about').single();
-  if (data) document.getElementById('about-content').innerHTML = data.value || '';
+  const { data } = await sb.from('settings').select('value').eq('key','about').limit(1);
+  if (data && data.length > 0) document.getElementById('about-content').innerHTML = data[0].value || '';
 
-  const { data: vid } = await sb.from('settings').select('*').eq('key', 'tutorial_video').single();
-  if (vid && vid.value) {
-    let embedUrl = vid.value;
-    if (vid.value.includes('aparat.com/v/')) {
-      const code = vid.value.split('aparat.com/v/')[1].split(/[/?]/)[0];
+  const { data: vid } = await sb.from('settings').select('value').eq('key','tutorial_video').limit(1);
+  if (vid && vid.length > 0 && vid[0].value) {
+    let embedUrl = vid[0].value;
+    if (embedUrl.includes('aparat.com/v/')) {
+      const code = embedUrl.split('aparat.com/v/')[1].split(/[/?]/)[0];
       embedUrl = `https://www.aparat.com/video/video/embed/videohash/${code}/vt/frame`;
     }
     document.getElementById('tutorial-iframe').src = embedUrl;
@@ -581,6 +484,18 @@ async function loadAbout() {
 /* ══════════════════════════════════════════
    HELPERS
 ══════════════════════════════════════════ */
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function showToast(msg, type='info', duration=3000) {
+  const wrap = document.getElementById('toast-wrap');
+  const icons = { success:'✅', error:'❌', info:'⚡' };
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span>${icons[type]||'⚡'}</span><span>${msg}</span>`;
+  wrap.appendChild(toast);
+  setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity 0.3s'; setTimeout(()=>toast.remove(),300); }, duration);
+}
+
 function timeAgo(dateStr) {
   if (!dateStr) return '';
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -589,17 +504,5 @@ function timeAgo(dateStr) {
   if (m < 60) return `${m} دقیقه پیش`;
   const h = Math.floor(m / 60);
   if (h < 24) return `${h} ساعت پیش`;
-  const d = Math.floor(h / 24);
-  return `${d} روز پیش`;
-}
-
-function closeModal(id) {
-  document.getElementById(id).classList.remove('open');
-}
-
-/* ── Gallery Filter ── */
-function setGalleryFilter(btn, filter) {
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  loadGallery(filter);
+  return `${Math.floor(h/24)} روز پیش`;
 }
