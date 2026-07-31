@@ -1,0 +1,28 @@
+{
+  "name": "تراگوس — طلوع پادشاهی",
+  "short_name": "تراگوس",
+  "description": "دوره آموزشی تولید تصویر با هوش مصنوعی",
+  "start_url": "/tragos-app/",
+  "display": "standalone",
+  "background_color": "#060610",
+  "theme_color": "#060610",
+  "orientation": "portrait",
+  "lang": "fa",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "assets/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education"],
+  "screenshots": []
+}
