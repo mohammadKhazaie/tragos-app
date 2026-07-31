@@ -139,6 +139,7 @@
       <div class="admin-nav-item" onclick="showSection('tools-admin')"><span class="nav-icon">🛠️</span>ابزارها</div>
 
       <div class="admin-sidebar-label">تنظیمات</div>
+      <div class="admin-nav-item" onclick="showSection('texts')"><span class="nav-icon">✏️</span>ویرایش متن‌ها</div>
       <div class="admin-nav-item" onclick="showSection('settings')"><span class="nav-icon">⚙️</span>تنظیمات</div>
       <div class="admin-nav-item" onclick="showSection('about-admin')"><span class="nav-icon">ℹ️</span>درباره ما</div>
 
@@ -186,10 +187,16 @@
         <div class="admin-section-title">🔑 کدهای دعوت</div>
         <div class="card" style="margin-bottom:16px">
           <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">ساخت کد جدید</div>
-          <button class="btn btn-gold" onclick="generateInviteCode()">🔑 ساخت کد اختصاصی جدید</button>
+          <button class="btn btn-gold" onclick="generateInviteCode()">🔑 ساخت کد + لینک اختصاصی</button>
           <div id="new-code-display" style="display:none">
+            <div style="font-size:0.8rem;color:var(--muted);margin:12px 0 4px">کد اختصاصی:</div>
             <div class="code-display" id="new-code-text" onclick="copyCode()" title="کلیک برای کپی"></div>
-            <div style="font-size:0.75rem;color:var(--muted);text-align:center;margin-top:6px">کلیک کنید تا کپی شود</div>
+            <div style="font-size:0.8rem;color:var(--muted);margin:12px 0 4px">لینک اختصاصی:</div>
+            <div class="code-display" id="new-link-text" onclick="copyLink()" title="کلیک برای کپی" style="font-size:0.75rem;letter-spacing:0;word-break:break-all"></div>
+            <div style="display:flex;gap:8px;margin-top:10px">
+              <button class="btn btn-gold btn-sm" onclick="copyCode()" style="flex:1">📋 کپی کد</button>
+              <button class="btn btn-outline btn-sm" onclick="copyLink()" style="flex:1">🔗 کپی لینک</button>
+            </div>
           </div>
         </div>
         <div class="card" style="overflow-x:auto">
@@ -350,6 +357,77 @@
         <div class="card"><div id="tools-admin-list"></div></div>
       </div>
 
+      <!-- ── TEXTS EDITOR ── -->
+      <div class="admin-section" id="sec-texts">
+        <div class="admin-section-title">✏️ ویرایش متن‌های اپ</div>
+        <div style="font-size:0.85rem;color:var(--muted);margin-bottom:16px">تمام متن‌های اپ از اینجا قابل ویرایش است. بعد از ذخیره، تغییرات فوری روی اپ اعمال می‌شود.</div>
+
+        <!-- صفحه ورود -->
+        <div class="card" style="margin-bottom:12px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">🔐 صفحه ورود</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">عنوان اصلی</label><input type="text" id="txt-login_title" placeholder="TRAGOS"></div>
+            <div class="form-group"><label class="form-label">زیرعنوان</label><input type="text" id="txt-login_subtitle"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">متن دکمه ورود</label><input type="text" id="txt-login_btn_text"></div>
+            <div class="form-group"><label class="form-label">متن راهنما</label><input type="text" id="txt-login_hint"></div>
+          </div>
+          <div class="form-group"><label class="form-label">placeholder کادر کد</label><input type="text" id="txt-login_input_placeholder"></div>
+        </div>
+
+        <!-- منو -->
+        <div class="card" style="margin-bottom:12px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">📱 منوی پایین</div>
+          <div class="form-row-3">
+            <div class="form-group"><label class="form-label">دوره‌ها</label><input type="text" id="txt-nav_courses"></div>
+            <div class="form-group"><label class="form-label">چالش‌ها</label><input type="text" id="txt-nav_challenges"></div>
+            <div class="form-group"><label class="form-label">کدکس</label><input type="text" id="txt-nav_codex"></div>
+          </div>
+          <div class="form-row-3">
+            <div class="form-group"><label class="form-label">گالری</label><input type="text" id="txt-nav_gallery"></div>
+            <div class="form-group"><label class="form-label">ابزارها</label><input type="text" id="txt-nav_tools"></div>
+            <div class="form-group"><label class="form-label">درباره</label><input type="text" id="txt-nav_about"></div>
+          </div>
+        </div>
+
+        <!-- عناوین صفحات -->
+        <div class="card" style="margin-bottom:12px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">📄 عناوین صفحات</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">عنوان دوره‌ها</label><input type="text" id="txt-courses_title"></div>
+            <div class="form-group"><label class="form-label">زیرعنوان دوره‌ها</label><input type="text" id="txt-courses_subtitle"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">عنوان گالری</label><input type="text" id="txt-gallery_title"></div>
+            <div class="form-group"><label class="form-label">زیرعنوان گالری</label><input type="text" id="txt-gallery_subtitle"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">عنوان کدکس</label><input type="text" id="txt-codex_title"></div>
+            <div class="form-group"><label class="form-label">زیرعنوان کدکس</label><input type="text" id="txt-codex_subtitle"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">عنوان چالش‌ها</label><input type="text" id="txt-challenges_title"></div>
+            <div class="form-group"><label class="form-label">عنوان ابزارها</label><input type="text" id="txt-tools_title"></div>
+          </div>
+        </div>
+
+        <!-- متن‌های عمومی -->
+        <div class="card" style="margin-bottom:12px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">🌐 متن‌های عمومی</div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">نام اپ</label><input type="text" id="txt-app_name"></div>
+            <div class="form-group"><label class="form-label">برچسب امتیاز</label><input type="text" id="txt-score_label"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label class="form-label">متن خالی بودن دوره‌ها</label><input type="text" id="txt-empty_courses"></div>
+            <div class="form-group"><label class="form-label">متن خالی بودن گالری</label><input type="text" id="txt-empty_gallery"></div>
+          </div>
+        </div>
+
+        <button class="btn btn-gold btn-block" onclick="saveAllTexts()">💾 ذخیره همه تغییرات</button>
+      </div>
+
       <!-- ── SETTINGS ── -->
       <div class="admin-section" id="sec-settings">
         <div class="admin-section-title">⚙️ تنظیمات</div>
@@ -450,9 +528,33 @@ function loadSection(name) {
     case 'challenges':   loadAdminChallenges(); break;
     case 'gallery-admin':loadAdminGallery(); break;
     case 'tools-admin':  loadAdminTools(); break;
+    case 'texts':        loadTexts(); break;
     case 'settings':     loadSettings(); break;
     case 'about-admin':  loadAboutAdmin(); break;
   }
+}
+
+/* ══════════════════════════════════════════
+   TEXTS EDITOR
+══════════════════════════════════════════ */
+async function loadTexts() {
+  const { data } = await sb.from('settings').select('key, value');
+  if (!data) return;
+  data.forEach(row => {
+    const el = document.getElementById('txt-' + row.key);
+    if (el) el.value = row.value || '';
+  });
+}
+
+async function saveAllTexts() {
+  const inputs = document.querySelectorAll('#sec-texts input[id^="txt-"]');
+  const updates = [];
+  inputs.forEach(input => {
+    const key = input.id.replace('txt-', '');
+    updates.push(sb.from('settings').upsert({ key, value: input.value }, { onConflict: 'key' }));
+  });
+  await Promise.all(updates);
+  showToast('همه متن‌ها ذخیره شدند ✅', 'success');
 }
 
 /* ══════════════════════════════════════════
@@ -521,16 +623,31 @@ async function deleteUser(id, username) {
 ══════════════════════════════════════════ */
 async function generateInviteCode() {
   const code = 'TRG-' + Math.random().toString(36).substr(2,4).toUpperCase() + Math.random().toString(36).substr(2,4).toUpperCase();
-  await sb.from('invite_codes').insert({ code, used: false, created_at: new Date().toISOString() });
+  // ساخت لینک اختصاصی
+  const appUrl = window.location.origin + window.location.pathname.replace('/admin/', '/').replace('/admin', '/');
+  const link = appUrl + '?invite=' + code;
+
+  await sb.from('invite_codes').insert({
+    code, used: false,
+    link: link,
+    created_at: new Date().toISOString()
+  });
+
   document.getElementById('new-code-text').textContent = code;
+  document.getElementById('new-link-text').textContent = link;
   document.getElementById('new-code-display').style.display = 'block';
-  showToast('کد جدید ساخته شد', 'success');
+  showToast('کد و لینک اختصاصی ساخته شد ✅', 'success');
   loadInvites();
 }
 
 function copyCode() {
   const code = document.getElementById('new-code-text').textContent;
   navigator.clipboard.writeText(code).then(() => showToast('کد کپی شد ✅', 'success'));
+}
+
+function copyLink() {
+  const link = document.getElementById('new-link-text').textContent;
+  navigator.clipboard.writeText(link).then(() => showToast('لینک کپی شد ✅', 'success'));
 }
 
 async function loadInvites() {
