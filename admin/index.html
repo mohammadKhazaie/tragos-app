@@ -216,8 +216,12 @@
           </div>
           <div style="overflow-x:auto">
             <table class="data-table">
-              <thead><tr><th>نام کاربری</th><th>امتیاز فعلی</th><th>امتیاز جدید (۱-۱۰)</th><th>ثبت</th></tr></thead>
+              <thead><tr><th>نام کاربری</th><th>امتیاز فعلی</th><th>امتیاز (+ اضافه / - کم)</th><th>ثبت</th></tr></thead>
               <tbody id="scores-tbody"></tbody>
+            </table>
+            <div style="margin-top:12px;font-size:0.8rem;color:var(--muted)">
+              ⚡ عدد مثبت: اضافه می‌شود &nbsp;|&nbsp; عدد منفی (مثل -5): کم می‌شود
+            </div>
             </table>
           </div>
         </div>
@@ -431,32 +435,75 @@
       <!-- ── SETTINGS ── -->
       <div class="admin-section" id="sec-settings">
         <div class="admin-section-title">⚙️ تنظیمات</div>
-        <div class="card" style="margin-bottom:16px">
-          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">ویدیو آموزش اپ</div>
-          <div class="form-group">
-            <label class="form-label">لینک ویدیو آپارات</label>
-            <input type="text" id="tutorial-video-url" style="direction:ltr" placeholder="https://www.aparat.com/v/...">
-          </div>
-          <button class="btn btn-gold btn-sm" onclick="saveSetting('tutorial_video', document.getElementById('tutorial-video-url').value)">💾 ذخیره</button>
-        </div>
-        <div class="card">
-          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">تغییر رمز ادمین</div>
+
+        <!-- رمز ادمین -->
+        <div class="card" style="margin-bottom:12px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">🔒 تغییر رمز ادمین</div>
           <div class="form-row">
             <div class="form-group"><label class="form-label">رمز جدید</label><input type="password" id="new-admin-pass"></div>
             <div class="form-group"><label class="form-label">تکرار رمز</label><input type="password" id="new-admin-pass2"></div>
           </div>
           <button class="btn btn-crimson btn-sm" onclick="changeAdminPass()">🔒 تغییر رمز</button>
         </div>
+
+        <!-- Supabase URL -->
+        <div class="card" style="margin-bottom:12px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:8px">🔗 اطلاعات اتصال</div>
+          <div style="font-size:0.82rem;color:var(--muted)">این اطلاعات در فایل js/supabase.js قرار دارند و باید مستقیم ویرایش شوند.</div>
+        </div>
+
+        <!-- اطلاعات اپ -->
+        <div class="card">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">📱 اطلاعات نسخه</div>
+          <div style="font-size:0.85rem;color:var(--parch);line-height:2">
+            <div>🏰 نام اپ: <strong style="color:var(--gold)">تراگوس — طلوع پادشاهی</strong></div>
+            <div>📦 نسخه: <strong style="color:var(--gold)">v2.0</strong></div>
+            <div>🔗 هاست: <span id="current-host" style="color:var(--gold)"></span></div>
+          </div>
+          <script>document.getElementById('current-host').textContent = window.location.hostname;</script>
+        </div>
       </div>
 
       <!-- ── ABOUT ADMIN ── -->
       <div class="admin-section" id="sec-about-admin">
         <div class="admin-section-title">ℹ️ درباره ما</div>
-        <div class="card">
-          <div class="form-group"><label class="form-label">متن درباره ما (HTML پشتیبانی می‌شود)</label>
-            <textarea id="about-text" rows="10"></textarea>
+
+        <!-- ویدیو آموزش اپ -->
+        <div class="card" style="margin-bottom:12px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">🎬 ویدیو آموزش اپ (آپارات)</div>
+          <div class="form-group">
+            <label class="form-label">لینک ویدیو آپارات</label>
+            <input type="text" id="tutorial-video-url" style="direction:ltr" placeholder="https://www.aparat.com/v/...">
           </div>
-          <button class="btn btn-gold" onclick="saveSetting('about', document.getElementById('about-text').value)">💾 ذخیره</button>
+          <button class="btn btn-gold btn-sm" onclick="saveSetting('tutorial_video', document.getElementById('tutorial-video-url').value)">💾 ذخیره ویدیو</button>
+        </div>
+
+        <!-- متن درباره ما -->
+        <div class="card" style="margin-bottom:12px">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">📝 متن درباره ما</div>
+          <div class="form-group">
+            <label class="form-label">محتوا (HTML پشتیبانی می‌شود)</label>
+            <textarea id="about-text" rows="10" placeholder="متن درباره دوره تراگوس..."></textarea>
+          </div>
+          <button class="btn btn-gold" onclick="saveSetting('about', document.getElementById('about-text').value)">💾 ذخیره متن</button>
+        </div>
+
+        <!-- افزودن تصویر/فایل -->
+        <div class="card">
+          <div style="font-size:0.9rem;font-weight:700;color:var(--gold);margin-bottom:12px">🖼️ افزودن تصویر به درباره ما</div>
+          <div style="font-size:0.82rem;color:var(--muted);margin-bottom:12px">
+            برای اضافه کردن تصویر به متن درباره ما، از این تگ HTML استفاده کن:
+          </div>
+          <div style="background:var(--mid);border-radius:6px;padding:10px;font-family:monospace;font-size:0.8rem;color:var(--gold);margin-bottom:12px;direction:ltr">
+            &lt;img src="لینک-تصویر" style="width:100%;border-radius:12px;margin:10px 0"&gt;
+          </div>
+          <div style="font-size:0.82rem;color:var(--muted);margin-bottom:8px">برای گرفتن لینک تصویر:</div>
+          <div style="font-size:0.82rem;color:var(--parch);line-height:1.8">
+            ۱. برو به Supabase → Storage → gallery<br>
+            ۲. روی Upload file کلیک کن<br>
+            ۳. تصویر رو آپلود کن<br>
+            ۴. روی فایل کلیک کن → Copy URL
+          </div>
         </div>
       </div>
 
@@ -688,12 +735,16 @@ async function loadScores() {
 async function addScore(userId) {
   const input = document.getElementById(`score-${userId}`);
   const pts = parseInt(input.value);
-  if (!pts || pts < 1 || pts > 10) { showToast('امتیاز باید بین ۱ تا ۱۰ باشد', 'error'); return; }
-  const { data: user } = await sb.from('users').select('score').eq('id', userId).single();
-  const newScore = (user?.score || 0) + pts;
+  if (isNaN(pts) || pts === 0 || pts < -100 || pts > 100) {
+    showToast('امتیاز باید بین ۱- تا ۱۰۰ باشد', 'error'); return;
+  }
+  const { data: userData } = await sb.from('users').select('score').eq('id', userId).limit(1);
+  const currentScore = userData?.[0]?.score || 0;
+  const newScore = Math.max(0, currentScore + pts);
   await sb.from('users').update({ score: newScore }).eq('id', userId);
   input.value = '';
-  showToast(`${pts} امتیاز اضافه شد ⭐`, 'success');
+  if (pts > 0) showToast(`+${pts} امتیاز اضافه شد ⭐`, 'success');
+  else showToast(`${pts} امتیاز کم شد`, 'info');
   loadScores();
 }
 
@@ -929,8 +980,16 @@ async function deleteTool(id) {
    SETTINGS
 ══════════════════════════════════════════ */
 async function loadSettings() {
-  const { data } = await sb.from('settings').select('*').eq('key', 'tutorial_video').single();
-  if (data) document.getElementById('tutorial-video-url').value = data.value || '';
+  const { data } = await sb.from('settings').select('key, value');
+  if (!data) return;
+  // پر کردن فیلد ویدیو (در بخش درباره ما)
+  const tutVid = data.find(r => r.key === 'tutorial_video');
+  const tutEl = document.getElementById('tutorial-video-url');
+  if (tutVid && tutEl) tutEl.value = tutVid.value || '';
+  // پر کردن متن درباره ما
+  const aboutRow = data.find(r => r.key === 'about');
+  const aboutEl = document.getElementById('about-text');
+  if (aboutRow && aboutEl) aboutEl.value = aboutRow.value || '';
 }
 
 async function saveSetting(key, value) {
