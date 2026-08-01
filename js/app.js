@@ -32,7 +32,7 @@ async function uploadToR2(file) {
    TRAGOS — App Core v2
 ═══════════════════════════════════════════ */
 
-const STATE = { user: null, deviceId: null, currentPage: 'courses' };
+const STATE = { user: null, deviceId: null, currentPage: 'courses', currentGalleryFilter: 'all' };
 
 document.addEventListener('DOMContentLoaded', async () => {
   initDeviceId();
@@ -350,25 +350,7 @@ async function loadGallery(filter = 'all') {
   }
 
   const likes = JSON.parse(localStorage.getItem('tg_likes') || '[]');
-  container.innerHTML = items.map(item => `
-    <div class="gallery-item" onclick="openGalleryModal(${JSON.stringify(item).replace(/"/g,'&quot;')})">
-      <div class="gallery-img-wrap">
-        <img src="${item.file_url}" alt="${item.title||''}" loading="lazy">
-      </div>
-      <div class="gallery-item-info">
-        <div class="gallery-item-user">@${item.users?.username||'ناشناس'}</div>
-        <div class="gallery-item-chapter">فصل ${item.chapter_num} — ${item.chapter_title||''}</div>
-        <div class="gallery-item-footer">
-          <button class="like-btn ${likes.includes(item.id)?'liked':''}"
-            onclick="event.stopPropagation();toggleLike('${item.id}',this)">
-            <span class="like-icon"></span>
-            <span class="like-count">${item.likes_count||0}</span>
-          </button>
-          <span style="font-size:0.72rem;color:var(--muted)">${toShamsi(item.created_at)}</span>
-        </div>
-      </div>
-    </div>
-  `).join('');
+  container.innerHTML = items.map(item => buildGalleryCard(item, likes, false)).join('');
 }
 
 async function loadInstructorGallery() {
@@ -388,56 +370,126 @@ async function loadInstructorGallery() {
 
   wrap.style.display = 'block';
   const likes = JSON.parse(localStorage.getItem('tg_likes') || '[]');
-  container.innerHTML = items.map(item => `
-    <div class="gallery-item instructor-work" onclick="openGalleryModal(${JSON.stringify(item).replace(/"/g,'&quot;')})">
+  container.innerHTML = items.map(item => buildGalleryCard(item, likes, true)).join('');
+}
+
+/* ── ساخت کارت گالری ── */
+function buildGalleryCard(item, likes, isInstructor) {
+  const isOwner = STATE.user && item.user_id === STATE.user.id;
+  const itemJson = JSON.stringify(item).replace(/"/g,'&quot;');
+  return `
+    <div class="gallery-item ${isInstructor?'instructor-pinned':''}" onclick="openGalleryModal('${item.id}')">
       <div class="gallery-img-wrap">
         <img src="${item.file_url}" alt="${item.title||''}" loading="lazy">
-        <span class="instructor-badge">👑 استاد</span>
+        ${isInstructor ? '<span class="instructor-badge">👑 استاد</span>' : ''}
       </div>
       <div class="gallery-item-info">
-        <div class="gallery-item-user" style="color:var(--gold)">اثر استاد</div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
+          <div class="gallery-item-user" style="${isInstructor?'color:var(--gold)':''}">
+            ${isInstructor ? 'اثر استاد' : '@'+( item.users?.username||'ناشناس')}
+          </div>
+          ${isOwner ? `<button onclick="event.stopPropagation();deleteMyGalleryItem('${item.id}')"
+            style="background:none;border:none;color:var(--muted);font-size:0.85rem;cursor:pointer;line-height:1;padding:2px 4px">🗑️</button>` : ''}
+        </div>
         <div class="gallery-item-chapter">فصل ${item.chapter_num} — ${item.chapter_title||''}</div>
+        ${item.title ? `<div style="font-size:0.75rem;color:var(--parch);margin-top:1px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">${item.title}</div>` : ''}
         <div class="gallery-item-footer">
           <button class="like-btn ${likes.includes(item.id)?'liked':''}"
             onclick="event.stopPropagation();toggleLike('${item.id}',this)">
             <span class="like-icon"></span>
             <span class="like-count">${item.likes_count||0}</span>
           </button>
-          <span style="font-size:0.72rem;color:var(--muted)">${toShamsi(item.created_at)}</span>
         </div>
       </div>
-    </div>
-  `).join('');
+    </div>`;
 }
 
-function openGalleryModal(item) {
-  if (typeof item === 'string') item = JSON.parse(item);
-  const likes = JSON.parse(localStorage.getItem('tg_likes') || '[]');
-  document.getElementById('gmodal-img').src = item.file_url;
-  document.getElementById('gmodal-title').textContent = item.title || 'بدون عنوان';
-  document.getElementById('gmodal-user').textContent = '@' + (item.users?.username || item.username || 'ناشناس');
-  document.getElementById('gmodal-chapter').textContent = 'فصل ' + item.chapter_num + ' — ' + (item.chapter_title||'');
-  document.getElementById('gmodal-date').textContent = toShamsi(item.created_at);
-  document.getElementById('gmodal-likes').textContent = item.likes_count || 0;
-  document.getElementById('gmodal-badge').style.display = item.is_instructor ? 'inline-flex' : 'none';
+async function deleteMyGalleryItem(id) {
+  if (!confirm('اثر شما حذف شود؟')) return;
+  await sb.from('gallery_items').delete().eq('id', id).eq('user_id', STATE.user.id);
+  showToast('اثر حذف شد', 'success');
+  loadGallery();
+}
+
+function openGalleryModal(itemId) {
   document.getElementById('gallery-modal').classList.add('open');
+  document.getElementById('gmodal-img').src = '';
+  document.getElementById('gmodal-img').style.opacity = '0';
+  document.getElementById('gmodal-loading').style.display = 'block';
+
+  sb.from('gallery_items').select('*, users(username)').eq('id', itemId).limit(1).then(({data, error}) => {
+    if (error || !data || data.length === 0) {
+      showToast('خطا در بارگذاری تصویر', 'error');
+      document.getElementById('gallery-modal').classList.remove('open');
+      return;
+    }
+    const item = data[0];
+    const likes = JSON.parse(localStorage.getItem('tg_likes') || '[]');
+    const liked = likes.includes(item.id);
+    const isOwner = STATE.user && item.user_id === STATE.user.id;
+
+    const img = document.getElementById('gmodal-img');
+    img.onload = () => { img.style.opacity = '1'; document.getElementById('gmodal-loading').style.display = 'none'; };
+    img.src = item.file_url;
+
+    document.getElementById('gmodal-title').textContent = item.title || '';
+    document.getElementById('gmodal-user').textContent = item.is_instructor ? '👑 اثر استاد' : '@' + (item.users?.username || 'ناشناس');
+    document.getElementById('gmodal-chapter').textContent = 'فصل ' + item.chapter_num + ' — ' + (item.chapter_title||'');
+    document.getElementById('gmodal-likes').textContent = item.likes_count || 0;
+
+    const likeBtn = document.getElementById('gmodal-like-btn');
+    likeBtn.className = 'like-btn' + (liked ? ' liked' : '');
+    likeBtn.onclick = () => {
+      toggleLike(item.id, likeBtn);
+      // sync count to card
+      setTimeout(() => loadGallery(STATE.currentGalleryFilter || 'all'), 500);
+    };
+
+    // دکمه حذف در modal (فقط برای صاحب اثر)
+    const delBtn = document.getElementById('gmodal-delete-btn');
+    if (isOwner && !item.is_instructor) {
+      delBtn.style.display = 'inline-flex';
+      delBtn.onclick = () => {
+        if (confirm('اثر شما حذف شود؟')) {
+          sb.from('gallery_items').delete().eq('id', item.id).eq('user_id', STATE.user.id).then(() => {
+            document.getElementById('gallery-modal').classList.remove('open');
+            showToast('اثر حذف شد', 'success');
+            loadGallery();
+          });
+        }
+      };
+    } else {
+      delBtn.style.display = 'none';
+    }
+  });
 }
 
 async function toggleLike(itemId, btn) {
   const likes = JSON.parse(localStorage.getItem('tg_likes') || '[]');
   const idx = likes.indexOf(itemId);
   const countEl = btn.querySelector('.like-count');
-  const current = parseInt(countEl.textContent) || 0;
+
+  // گرفتن تعداد واقعی از دیتابیس
+  const { data: current } = await sb.from('gallery_items').select('likes_count').eq('id', itemId).limit(1);
+  const realCount = current?.[0]?.likes_count || 0;
+
   if (idx === -1) {
     likes.push(itemId);
     btn.classList.add('liked');
-    countEl.textContent = current + 1;
-    await sb.from('gallery_items').update({ likes_count: current + 1 }).eq('id', itemId);
+    const newCount = realCount + 1;
+    countEl.textContent = newCount;
+    await sb.from('gallery_items').update({ likes_count: newCount }).eq('id', itemId);
+    // sync modal like count
+    const mLikes = document.getElementById('gmodal-likes');
+    if (mLikes) mLikes.textContent = newCount;
   } else {
     likes.splice(idx, 1);
     btn.classList.remove('liked');
-    countEl.textContent = Math.max(0, current - 1);
-    await sb.from('gallery_items').update({ likes_count: Math.max(0, current - 1) }).eq('id', itemId);
+    const newCount = Math.max(0, realCount - 1);
+    countEl.textContent = newCount;
+    await sb.from('gallery_items').update({ likes_count: newCount }).eq('id', itemId);
+    const mLikes = document.getElementById('gmodal-likes');
+    if (mLikes) mLikes.textContent = newCount;
   }
   localStorage.setItem('tg_likes', JSON.stringify(likes));
 }
@@ -514,6 +566,7 @@ async function handleUpload() {
 }
 
 function setGalleryFilter(btn, filter) {
+  STATE.currentGalleryFilter = filter;
   document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   loadGallery(filter);
@@ -563,14 +616,47 @@ async function loadChallenges() {
     container.innerHTML = `<div class="empty-state"><div class="empty-icon">⚔️</div><div class="empty-text">${get('empty_challenges','چالش‌ها به زودی اضافه می‌شوند')}</div></div>`;
     return;
   }
-  container.innerHTML = data.map(ch => `
-    <div class="challenge-card">
-      <div class="challenge-badge">⚔️ فصل ${ch.chapter_num} — ${ch.chapter_title||''}</div>
+  // گرفتن تیک‌های این کاربر
+  const { data: completions } = await sb.from('challenge_completions')
+    .select('challenge_id').eq('user_id', STATE.user.id);
+  const doneIds = new Set((completions||[]).map(c => c.challenge_id));
+
+  container.innerHTML = data.map(ch => {
+    const isDone = doneIds.has(ch.id);
+    return `
+    <div class="challenge-card ${isDone?'challenge-done':''}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div class="challenge-badge">⚔️ فصل ${ch.chapter_num} — ${ch.chapter_title||''}</div>
+        <button onclick="toggleChallengeComplete('${ch.id}', this)"
+          class="challenge-tick-btn ${isDone?'done':''}"
+          title="${isDone?'انجام شده — کلیک برای لغو':'انجام دادم'}">
+          ${isDone ? '✅' : '⬜'}
+        </button>
+      </div>
       <div class="challenge-title">${ch.title}</div>
       <div class="challenge-desc">${ch.description||''}</div>
       ${ch.image_url ? `<img src="${ch.image_url}" class="challenge-img" alt="">` : ''}
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
+}
+
+async function toggleChallengeComplete(challengeId, btn) {
+  const isDone = btn.classList.contains('done');
+  if (isDone) {
+    await sb.from('challenge_completions')
+      .delete().eq('user_id', STATE.user.id).eq('challenge_id', challengeId);
+    btn.textContent = '⬜';
+    btn.classList.remove('done');
+    btn.closest('.challenge-card').classList.remove('challenge-done');
+    showToast('تیک برداشته شد', 'info');
+  } else {
+    await sb.from('challenge_completions')
+      .insert({ user_id: STATE.user.id, challenge_id: challengeId });
+    btn.textContent = '✅';
+    btn.classList.add('done');
+    btn.closest('.challenge-card').classList.add('challenge-done');
+    showToast('چالش تکمیل شد! 🎉', 'success');
+  }
 }
 
 /* ══════════════════════════════════════════
@@ -589,10 +675,33 @@ async function loadTools() {
       <div class="tool-cat">${t.category||'عمومی'}</div>
       <div class="tool-title">${t.title}</div>
       <div class="tool-desc">${t.description||''}</div>
-      ${t.file_url && t.downloadable ? `<a href="${t.file_url}" download class="tool-download">⬇️ دانلود</a>` : ''}
-      ${t.link_url ? `<a href="${t.link_url}" target="_blank" class="tool-download">🔗 مشاهده</a>` : ''}
+      ${t.prompt_text ? `
+        <div class="prompt-box">
+          <div class="prompt-label">📋 پرامپت قابل کپی</div>
+          <div class="prompt-text">${t.prompt_text}</div>
+          <button class="prompt-copy-btn" onclick="copyPrompt(this, \`${t.prompt_text.replace(/\`/g,'\`')}\`)">
+            📋 کپی پرامپت
+          </button>
+        </div>` : ''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+        ${t.file_url && t.downloadable ? `<a href="${t.file_url}" download class="tool-download">⬇️ دانلود</a>` : ''}
+        ${t.link_url ? `<a href="${t.link_url}" target="_blank" class="tool-download">🔗 مشاهده</a>` : ''}
+      </div>
     </div>
   `).join('')}</div>`;
+}
+
+function copyPrompt(btn, text) {
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = '✅ کپی شد!';
+    btn.style.background = 'var(--gold)';
+    btn.style.color = 'var(--void)';
+    setTimeout(() => {
+      btn.textContent = '📋 کپی پرامپت';
+      btn.style.background = '';
+      btn.style.color = '';
+    }, 2000);
+  });
 }
 
 /* ══════════════════════════════════════════
