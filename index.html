@@ -12,7 +12,18 @@
   <link rel="manifest" href="manifest.json">
   <link rel="apple-touch-icon" href="assets/logo.png">
   <link rel="icon" type="image/png" href="assets/logo.png">
-  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/style.css?v=4">
+  <script>
+    // پاک کردن cache قدیمی
+    if ('caches' in window) {
+      caches.keys().then(keys => keys.forEach(k => { if(k !== 'tragos-v4') caches.delete(k); }));
+    }
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        regs.forEach(reg => reg.update());
+      });
+    }
+  </script>
 </head>
 <body>
 
@@ -242,17 +253,7 @@
     <div class="form-group">
       <label class="form-label">این اثر مربوط به کدام فصل است؟</label>
       <select id="upload-chapter">
-        <option value="">انتخاب فصل...</option>
-        <option value="1">فصل ۱ — دروازه تراگوس</option>
-        <option value="2">فصل ۲ — روح سرزمین</option>
-        <option value="3">فصل ۳ — قلب سرزمین</option>
-        <option value="4">فصل ۴ — پادشاه</option>
-        <option value="5">فصل ۵ — ارتش تراگوس</option>
-        <option value="6">فصل ۶ — بخش‌های سرزمین</option>
-        <option value="7">فصل ۷ — موجودات تراگوس</option>
-        <option value="8">فصل ۸ — روایتگری بصری</option>
-        <option value="9">فصل ۹ — جادوی پیشرفته</option>
-        <option value="10">فصل ۱۰ — طلوع پادشاهی</option>
+        <option value="">در حال بارگذاری فصل‌ها...</option>
       </select>
     </div>
     <div class="form-group">
@@ -264,62 +265,34 @@
 </div>
 
 <!-- Gallery Modal -->
-<div class="modal-overlay" id="gallery-modal" onclick="if(event.target===this)closeModal('gallery-modal')">
-  <div class="modal-box" style="max-width:560px;padding:0;overflow:hidden;background:var(--night)">
-    <!-- تصویر کامل -->
-    <div style="position:relative;background:#000;max-height:55vh;overflow:hidden">
-      <img id="gmodal-img" src="" alt="" style="width:100%;max-height:55vh;object-fit:contain;display:block">
-      <span id="gmodal-badge" style="display:none;position:absolute;top:12px;right:12px;background:var(--gold);color:var(--void);font-size:0.75rem;font-weight:900;padding:4px 12px;border-radius:20px">👑 اثر استاد</span>
-      <button onclick="closeModal('gallery-modal')" style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,0.6);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
-    </div>
-    <!-- جزئیات -->
-    <div style="padding:20px">
-      <div style="font-size:1.1rem;font-weight:700;color:var(--cream);margin-bottom:12px" id="gmodal-title"></div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
-        <div style="background:var(--mid);border-radius:8px;padding:10px">
-          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px">پادشاه</div>
-          <div style="font-size:0.9rem;font-weight:700;color:var(--gold)" id="gmodal-user"></div>
-        </div>
-        <div style="background:var(--mid);border-radius:8px;padding:10px">
-          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px">فصل</div>
-          <div style="font-size:0.85rem;color:var(--parch)" id="gmodal-chapter"></div>
-        </div>
-        <div style="background:var(--mid);border-radius:8px;padding:10px">
-          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px">تاریخ</div>
-          <div style="font-size:0.85rem;color:var(--parch)" id="gmodal-date"></div>
-        </div>
-        <div style="background:var(--mid);border-radius:8px;padding:10px">
-          <div style="font-size:0.7rem;color:var(--muted);margin-bottom:3px">لایک</div>
-          <div style="font-size:0.9rem;font-weight:700;color:#ff6666">❤️ <span id="gmodal-likes"></span></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Gallery Modal -->
 <div class="modal-overlay" id="gallery-modal" onclick="closeGalleryModal(event)">
-  <div class="modal-box" style="max-width:520px;padding:0;overflow:hidden;background:var(--night);border:1px solid var(--gold-dk)" onclick="event.stopPropagation()">
-    <input type="hidden" id="gmodal-item-id">
+  <div class="modal-box" style="max-width:540px;padding:0;overflow:hidden;background:var(--night);border:1px solid var(--gold-dk);border-radius:16px" onclick="event.stopPropagation()">
     <!-- تصویر -->
-    <div style="position:relative;background:#000;max-height:60vw;overflow:hidden">
-      <img id="gmodal-img" src="" alt="" style="width:100%;display:block;object-fit:contain;max-height:60vw">
-      <button onclick="closeGalleryModal()" style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.7);border:none;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center">×</button>
-      <span style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.7);color:var(--gold);font-size:0.75rem;padding:4px 10px;border-radius:20px" id="gmodal-chapter"></span>
+    <div style="position:relative;background:#000;min-height:200px;display:flex;align-items:center;justify-content:center">
+      <div id="gmodal-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#000">
+        <div class="spinner"></div>
+      </div>
+      <img id="gmodal-img" src="" alt=""
+        style="width:100%;display:block;object-fit:contain;max-height:70vw;transition:opacity 0.3s">
+      <button onclick="closeGalleryModal()"
+        style="position:absolute;top:10px;left:10px;background:rgba(0,0,0,0.75);border:none;color:#fff;width:34px;height:34px;border-radius:50%;font-size:1.2rem;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2">×</button>
+      <span style="position:absolute;top:10px;right:10px;background:rgba(0,0,0,0.75);color:var(--gold);font-size:0.72rem;padding:4px 10px;border-radius:20px;z-index:2" id="gmodal-chapter"></span>
     </div>
     <!-- جزئیات -->
-    <div style="padding:16px">
-      <div style="font-size:1rem;font-weight:700;color:var(--cream);margin-bottom:8px" id="gmodal-title"></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div style="font-size:0.85rem;color:var(--gold);font-weight:700" id="gmodal-user"></div>
-        <div style="font-size:0.78rem;color:var(--muted)" id="gmodal-date"></div>
-      </div>
+    <div style="padding:14px 16px">
+      <div id="gmodal-title" style="font-size:0.95rem;font-weight:700;color:var(--cream);margin-bottom:6px"></div>
+      <div id="gmodal-user" style="font-size:0.85rem;color:var(--gold);font-weight:700;margin-bottom:12px"></div>
       <div style="display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid var(--border)">
-        <button class="like-btn" id="gmodal-like-btn" style="font-size:0.9rem;padding:6px 16px;border-radius:20px;background:var(--smoke)">
+        <button class="like-btn" id="gmodal-like-btn"
+          style="font-size:0.9rem;padding:7px 18px;border-radius:20px;background:var(--smoke);display:flex;align-items:center;gap:6px">
           <span class="like-icon"></span>
           <span id="gmodal-likes">0</span>
         </button>
-        <a id="gmodal-download" href="#" download style="display:none" class="btn btn-outline btn-sm">⬇️ دانلود</a>
+        <button id="gmodal-delete-btn"
+          style="display:none;align-items:center;gap:6px;background:rgba(139,0,0,0.2);border:1px solid var(--crimson);color:#ff9999;padding:7px 14px;border-radius:20px;font-size:0.82rem;cursor:pointer">
+          🗑️ حذف اثر
+        </button>
       </div>
     </div>
   </div>
