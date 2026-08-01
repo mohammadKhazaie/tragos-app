@@ -318,11 +318,7 @@
           <div class="form-row">
             <div class="form-group"><label class="form-label">فصل</label>
               <select id="admin-gallery-chapter">
-                <option value="1">فصل ۱</option><option value="2">فصل ۲</option>
-                <option value="3">فصل ۳</option><option value="4">فصل ۴</option>
-                <option value="5">فصل ۵</option><option value="6">فصل ۶</option>
-                <option value="7">فصل ۷</option><option value="8">فصل ۸</option>
-                <option value="9">فصل ۹</option><option value="10">فصل ۱۰</option>
+                <option value="">در حال بارگذاری...</option>
               </select>
             </div>
             <div class="form-group"><label class="form-label">عنوان اثر</label><input type="text" id="admin-gallery-title"></div>
@@ -347,6 +343,11 @@
             <div class="form-group"><label class="form-label">عنوان</label><input type="text" id="tool-title"></div>
           </div>
           <div class="form-group"><label class="form-label">توضیح</label><textarea id="tool-desc" rows="3"></textarea></div>
+          <div class="form-group">
+            <label class="form-label">📋 پرامپت قابل کپی (اختیاری)</label>
+            <textarea id="tool-prompt" rows="4" placeholder="پرامپتی که کاربران می‌توانند کپی کنند..." style="direction:ltr;text-align:left;font-size:0.82rem"></textarea>
+            <div class="form-hint">اگه پر باشه، یه دکمه کپی پرامپت برای کاربران نمایش داده می‌شه</div>
+          </div>
           <div class="form-row">
             <div class="form-group"><label class="form-label">لینک فایل (اختیاری)</label><input type="text" id="tool-file" style="direction:ltr"></div>
             <div class="form-group"><label class="form-label">لینک خارجی (اختیاری)</label><input type="text" id="tool-link" style="direction:ltr"></div>
@@ -922,14 +923,37 @@ async function addInstructorWork() {
 }
 
 async function loadAdminGallery() {
+  // بارگذاری فصل‌ها از دیتابیس برای select
+  const { data: chapters } = await sb.from('chapters').select('order_num, title').order('order_num');
+  const select = document.getElementById('admin-gallery-chapter');
+  if (chapters && chapters.length > 0) {
+    select.innerHTML = chapters.map(ch =>
+      `<option value="${ch.order_num}">فصل ${ch.order_num} — ${ch.title}</option>`
+    ).join('');
+  } else {
+    select.innerHTML = '<option value="">ابتدا فصل اضافه کنید</option>';
+  }
+
   const { data } = await sb.from('gallery_items').select('*, users(username)').order('created_at',{ascending:false});
   document.getElementById('gallery-admin-tbody').innerHTML = (data||[]).map(item=>`
     <tr>
-      <td><img src="${item.file_url}" style="width:50px;height:50px;object-fit:cover;border-radius:6px"></td>
+      <td>
+        <img src="${item.file_url}"
+          style="width:54px;height:54px;object-fit:cover;border-radius:6px;cursor:zoom-in;border:1px solid var(--border)"
+          onclick="adminZoomImg('${item.file_url}')"
+          title="کلیک برای بزرگنمایی">
+      </td>
       <td>${item.is_instructor ? '👑 مدرس' : `@${item.users?.username||'-'}`}</td>
       <td>فصل ${item.chapter_num}</td>
       <td>❤️ ${item.likes_count||0}</td>
-      <td><button class="btn btn-outline btn-sm" onclick="deleteGalleryItem('${item.id}')">🗑️</button></td>
+      <td>
+        <div class="admin-score-inline">
+          <input type="number" id="gscore-${item.id}" placeholder="امتیاز" min="-100" max="100"
+            style="width:60px;padding:4px 6px;font-size:0.78rem">
+          <button class="btn btn-gold btn-sm" onclick="addScoreFromGallery('${item.user_id}','${item.id}')">⭐</button>
+          <button class="btn btn-outline btn-sm" onclick="deleteGalleryItem('${item.id}')">🗑️</button>
+        </div>
+      </td>
     </tr>
   `).join('');
 }
@@ -940,6 +964,32 @@ async function deleteGalleryItem(id) {
   showToast('حذف شد', 'success'); loadAdminGallery();
 }
 
+function adminZoomImg(url) {
+  let overlay = document.getElementById('admin-img-zoom');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'admin-img-zoom';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.95);display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+    overlay.onclick = () => overlay.remove();
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = `<img src="${url}" style="max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px">`;
+  document.body.appendChild(overlay);
+}
+
+async function addScoreFromGallery(userId, itemId) {
+  const input = document.getElementById('gscore-' + itemId);
+  const pts = parseInt(input.value);
+  if (isNaN(pts) || pts === 0) { showToast('امتیاز را وارد کنید', 'error'); return; }
+  const { data } = await sb.from('users').select('score').eq('id', userId).limit(1);
+  const current = data?.[0]?.score || 0;
+  const newScore = Math.max(0, current + pts);
+  await sb.from('users').update({ score: newScore }).eq('id', userId);
+  input.value = '';
+  showToast(pts > 0 ? `+${pts} امتیاز داده شد ⭐` : `${pts} امتیاز کم شد`, 'success');
+  loadAdminGallery();
+}
+
 /* ══════════════════════════════════════════
    TOOLS ADMIN
 ══════════════════════════════════════════ */
@@ -948,12 +998,18 @@ async function addTool() {
   if (!title) { showToast('عنوان الزامی است', 'error'); return; }
   await sb.from('tools').insert({
     category: document.getElementById('tool-cat').value,
-    title, description: document.getElementById('tool-desc').value,
+    title,
+    description: document.getElementById('tool-desc').value,
     file_url: document.getElementById('tool-file').value,
     link_url: document.getElementById('tool-link').value,
     downloadable: document.getElementById('tool-downloadable').checked,
+    prompt_text: document.getElementById('tool-prompt').value || null,
   });
-  showToast('ابزار اضافه شد ✅', 'success'); loadAdminTools();
+  showToast('ابزار اضافه شد ✅', 'success');
+  document.getElementById('tool-prompt').value = '';
+  document.getElementById('tool-title').value = '';
+  document.getElementById('tool-desc').value = '';
+  loadAdminTools();
 }
 
 async function loadAdminTools() {
