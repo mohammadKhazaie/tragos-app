@@ -746,3 +746,97 @@ input:focus, textarea:focus, select:focus {
   max-height: 65vw;
   background: #000;
 }
+
+/* ══════════════════════════════════════════
+   INSTRUCTOR PINNED (same size, gold border)
+══════════════════════════════════════════ */
+.gallery-item.instructor-pinned {
+  border-color: var(--gold);
+  box-shadow: 0 0 12px rgba(201,162,39,0.2);
+}
+.gallery-item.instructor-pinned .gallery-item-user {
+  color: var(--gold);
+  font-weight: 700;
+}
+
+/* ══════════════════════════════════════════
+   CHALLENGE DONE STATE
+══════════════════════════════════════════ */
+.challenge-card.challenge-done {
+  border-right-color: #4CAF50;
+  background: rgba(76,175,80,0.04);
+}
+.challenge-tick-btn {
+  background: none;
+  border: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px;
+  transition: transform 0.2s;
+  flex-shrink: 0;
+}
+.challenge-tick-btn:hover { transform: scale(1.2); }
+.challenge-tick-btn.done { filter: drop-shadow(0 0 4px rgba(76,175,80,0.6)); }
+
+/* ══════════════════════════════════════════
+   PROMPT COPYABLE BOX
+══════════════════════════════════════════ */
+.prompt-box {
+  margin-top: 10px;
+  background: var(--mid);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+.prompt-label {
+  font-size: 0.7rem;
+  color: var(--gold);
+  font-weight: 700;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.prompt-text {
+  font-size: 0.8rem;
+  color: var(--parch);
+  line-height: 1.6;
+  margin-bottom: 8px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 80px;
+  overflow-y: auto;
+  direction: ltr;
+  text-align: left;
+}
+.prompt-copy-btn {
+  width: 100%;
+  padding: 7px;
+  background: rgba(201,162,39,0.1);
+  border: 1px solid rgba(201,162,39,0.3);
+  border-radius: var(--radius-sm);
+  color: var(--gold);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--transition);
+  font-family: var(--font);
+}
+.prompt-copy-btn:hover {
+  background: var(--gold);
+  color: var(--void);
+}
+
+/* ══════════════════════════════════════════
+   ADMIN GALLERY SCORE
+══════════════════════════════════════════ */
+.admin-score-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.admin-score-inline input {
+  width: 52px !important;
+  padding: 4px 6px;
+  font-size: 0.78rem;
+}
