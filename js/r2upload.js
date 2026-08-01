@@ -5,7 +5,7 @@
 ═══════════════════════════════════════════ */
 
 const CLOUDINARY_CONFIG = {
-  cloudName:    'YOUR_CLOUD_NAME',    // از dashboard Cloudinary
+  cloudName:    'ja526cef',    // از dashboard Cloudinary
   uploadPreset: 'tragos_upload',      // بعد از ساخت preset این رو پر کن
 };
 
