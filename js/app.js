@@ -1,4 +1,34 @@
 /* ═══════════════════════════════════════════
+   TRAGOS — Cloudflare R2 Config
+   ⚠️ بعد از راه‌اندازی R2 پر کن
+═══════════════════════════════════════════ */
+const R2_CONFIG = {
+  accountId: 'YOUR_CF_ACCOUNT_ID',
+  bucketName: 'tragos-gallery',
+  publicUrl: 'YOUR_R2_PUBLIC_URL', // مثال: https://pub-xxxx.r2.dev
+  workerUrl: 'YOUR_WORKER_URL',    // مثال: https://tragos-upload.workers.dev
+};
+
+// آپلود به R2 از طریق Worker
+async function uploadToR2(file) {
+  const ext = file.name.split('.').pop();
+  const filename = `gallery/${STATE.user.id}/${Date.now()}.${ext}`;
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('filename', filename);
+
+  const res = await fetch(R2_CONFIG.workerUrl, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!res.ok) throw new Error('خطا در آپلود به R2');
+  const data = await res.json();
+  return data.url || `${R2_CONFIG.publicUrl}/${filename}`;
+}
+
+/* ═══════════════════════════════════════════
    TRAGOS — App Core v2
 ═══════════════════════════════════════════ */
 
@@ -114,7 +144,13 @@ async function handleRegister() {
   const inviteId = document.getElementById('reg-invite-id').value;
 
   if (!username) { showToast('نام کاربری الزامی است', 'error'); return; }
-  if (!phone || phone.length < 10) { showToast('شماره تلفن معتبر نیست', 'error'); return; }
+  if (!phone || phone.length !== 11 || !/^[0-9]{11}$/.test(phone)) {
+    const phoneEl = document.getElementById("reg-phone");
+    phoneEl.style.borderColor = "#ff4444";
+    phoneEl.style.boxShadow = "0 0 0 2px rgba(255,68,68,0.2)";
+    showToast("شماره تلفن باید دقیقاً ۱۱ رقم عددی باشد", "error");
+    return;
+  }
 
   const btn = document.getElementById('reg-btn');
   btn.disabled = true; btn.innerHTML = '<span class="spinner" style="width:18px;height:18px;display:inline-block"></span>';
@@ -279,14 +315,33 @@ function playEpisode(id, videoUrl, title) {
 /* ══════════════════════════════════════════
    GALLERY
 ══════════════════════════════════════════ */
+async function loadGalleryFilters(activeFilter = 'all') {
+  const filterWrap = document.getElementById('gallery-filter');
+  const { data: chapters } = await sb.from('chapters').select('order_num, title').order('order_num');
+  let html = `<button class="filter-btn ${activeFilter==='all'?'active':''}" onclick="setGalleryFilter(this,'all')">همه</button>`;
+  if (chapters) {
+    chapters.forEach(ch => {
+      html += `<button class="filter-btn ${activeFilter==ch.order_num?'active':''}" onclick="setGalleryFilter(this,'${ch.order_num}')">فصل ${ch.order_num}</button>`;
+    });
+  }
+  filterWrap.innerHTML = html;
+}
+
 async function loadGallery(filter = 'all') {
+  await loadGalleryFilters(filter);
+
+  // ── بخش استاد ──
+  await loadInstructorGallery();
+
+  // ── بخش دانشجوها ──
   const container = document.getElementById('gallery-container');
   container.innerHTML = '<div style="grid-column:span 2" class="empty-state"><div class="spinner"></div></div>';
 
-  let query = sb.from('gallery_items').select('*, users(username)')
-    .order('is_instructor', { ascending: false })
+  let query = sb.from('gallery_items')
+    .select('*, users(username)')
+    .eq('is_instructor', false)
     .order('created_at', { ascending: false });
-  if (filter !== 'all') query = query.eq('chapter_num', filter);
+  if (filter !== 'all') query = query.eq('chapter_num', parseInt(filter));
 
   const { data: items } = await query;
   if (!items || items.length === 0) {
@@ -296,24 +351,76 @@ async function loadGallery(filter = 'all') {
 
   const likes = JSON.parse(localStorage.getItem('tg_likes') || '[]');
   container.innerHTML = items.map(item => `
-    <div class="gallery-item ${item.is_instructor ? 'instructor-work' : ''}">
+    <div class="gallery-item" onclick="openGalleryModal(${JSON.stringify(item).replace(/"/g,'&quot;')})">
       <div class="gallery-img-wrap">
         <img src="${item.file_url}" alt="${item.title||''}" loading="lazy">
-        ${item.is_instructor ? '<span class="instructor-badge">👑 مدرس</span>' : ''}
       </div>
       <div class="gallery-item-info">
         <div class="gallery-item-user">@${item.users?.username||'ناشناس'}</div>
         <div class="gallery-item-chapter">فصل ${item.chapter_num} — ${item.chapter_title||''}</div>
         <div class="gallery-item-footer">
-          <button class="like-btn ${likes.includes(item.id)?'liked':''}" onclick="toggleLike('${item.id}',this)">
+          <button class="like-btn ${likes.includes(item.id)?'liked':''}"
+            onclick="event.stopPropagation();toggleLike('${item.id}',this)">
             <span class="like-icon"></span>
             <span class="like-count">${item.likes_count||0}</span>
           </button>
-          <span style="font-size:0.72rem;color:var(--muted)">${timeAgo(item.created_at)}</span>
+          <span style="font-size:0.72rem;color:var(--muted)">${toShamsi(item.created_at)}</span>
         </div>
       </div>
     </div>
   `).join('');
+}
+
+async function loadInstructorGallery() {
+  const wrap = document.getElementById('instructor-gallery-wrap');
+  const container = document.getElementById('instructor-gallery-container');
+  container.innerHTML = '<div class="empty-state"><div class="spinner"></div></div>';
+
+  const { data: items } = await sb.from('gallery_items')
+    .select('*, users(username)')
+    .eq('is_instructor', true)
+    .order('created_at', { ascending: false });
+
+  if (!items || items.length === 0) {
+    wrap.style.display = 'none';
+    return;
+  }
+
+  wrap.style.display = 'block';
+  const likes = JSON.parse(localStorage.getItem('tg_likes') || '[]');
+  container.innerHTML = items.map(item => `
+    <div class="gallery-item instructor-work" onclick="openGalleryModal(${JSON.stringify(item).replace(/"/g,'&quot;')})">
+      <div class="gallery-img-wrap">
+        <img src="${item.file_url}" alt="${item.title||''}" loading="lazy">
+        <span class="instructor-badge">👑 استاد</span>
+      </div>
+      <div class="gallery-item-info">
+        <div class="gallery-item-user" style="color:var(--gold)">اثر استاد</div>
+        <div class="gallery-item-chapter">فصل ${item.chapter_num} — ${item.chapter_title||''}</div>
+        <div class="gallery-item-footer">
+          <button class="like-btn ${likes.includes(item.id)?'liked':''}"
+            onclick="event.stopPropagation();toggleLike('${item.id}',this)">
+            <span class="like-icon"></span>
+            <span class="like-count">${item.likes_count||0}</span>
+          </button>
+          <span style="font-size:0.72rem;color:var(--muted)">${toShamsi(item.created_at)}</span>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openGalleryModal(item) {
+  if (typeof item === 'string') item = JSON.parse(item);
+  const likes = JSON.parse(localStorage.getItem('tg_likes') || '[]');
+  document.getElementById('gmodal-img').src = item.file_url;
+  document.getElementById('gmodal-title').textContent = item.title || 'بدون عنوان';
+  document.getElementById('gmodal-user').textContent = '@' + (item.users?.username || item.username || 'ناشناس');
+  document.getElementById('gmodal-chapter').textContent = 'فصل ' + item.chapter_num + ' — ' + (item.chapter_title||'');
+  document.getElementById('gmodal-date').textContent = toShamsi(item.created_at);
+  document.getElementById('gmodal-likes').textContent = item.likes_count || 0;
+  document.getElementById('gmodal-badge').style.display = item.is_instructor ? 'inline-flex' : 'none';
+  document.getElementById('gallery-modal').classList.add('open');
 }
 
 async function toggleLike(itemId, btn) {
@@ -335,7 +442,25 @@ async function toggleLike(itemId, btn) {
   localStorage.setItem('tg_likes', JSON.stringify(likes));
 }
 
-function openUploadModal() { document.getElementById('upload-modal').classList.add('open'); }
+function closeGalleryModal(e) {
+  if (!e || e.target === document.getElementById('gallery-modal')) {
+    document.getElementById('gallery-modal').classList.remove('open');
+    document.getElementById('gmodal-img').src = '';
+  }
+}
+
+async function openUploadModal() {
+  // بارگذاری فصل‌ها از دیتابیس
+  const { data: chapters } = await sb.from('chapters').select('order_num, title').order('order_num');
+  const select = document.getElementById('upload-chapter');
+  select.innerHTML = '<option value="">انتخاب فصل...</option>';
+  if (chapters) {
+    chapters.forEach(ch => {
+      select.innerHTML += `<option value="${ch.order_num}">فصل ${ch.order_num} — ${ch.title}</option>`;
+    });
+  }
+  document.getElementById('upload-modal').classList.add('open');
+}
 
 async function handleUpload() {
   const file = document.getElementById('upload-file').files[0];
@@ -352,15 +477,23 @@ async function handleUpload() {
   btn.disabled = true; btn.innerHTML = 'در حال آپلود...';
 
   try {
-    const ext = file.name.split('.').pop();
-    const path = `gallery/${STATE.user.id}/${Date.now()}.${ext}`;
-    const { error: upErr } = await sb.storage.from('gallery').upload(path, file);
-    if (upErr) throw upErr;
+    let fileUrl = '';
 
-    const { data: urlData } = sb.storage.from('gallery').getPublicUrl(path);
+    // اگه R2 تنظیم شده، از R2 استفاده کن وگرنه Supabase
+    if (R2_CONFIG.workerUrl !== 'YOUR_WORKER_URL') {
+      fileUrl = await uploadToR2(file);
+    } else {
+      const ext = file.name.split('.').pop();
+      const path = `gallery/${STATE.user.id}/${Date.now()}.${ext}`;
+      const { error: upErr } = await sb.storage.from('gallery').upload(path, file);
+      if (upErr) throw upErr;
+      const { data: urlData } = sb.storage.from('gallery').getPublicUrl(path);
+      fileUrl = urlData.publicUrl;
+    }
+
     await sb.from('gallery_items').insert({
       user_id: STATE.user.id,
-      file_url: urlData.publicUrl,
+      file_url: fileUrl,
       file_type: file.type.startsWith('video') ? 'video' : 'image',
       chapter_num: parseInt(chapterNum),
       chapter_title: document.getElementById('upload-chapter').selectedOptions[0]?.text || '',
@@ -371,7 +504,7 @@ async function handleUpload() {
     });
 
     document.getElementById('upload-modal').classList.remove('open');
-    showToast('اثر شما آپلود شد ⚔️', 'success');
+    showToast('اثر شما با موفقیت آپلود شد ⚔️', 'success');
     loadGallery();
   } catch(e) {
     showToast('خطا در آپلود: ' + e.message, 'error');
@@ -496,13 +629,11 @@ function showToast(msg, type='info', duration=3000) {
   setTimeout(() => { toast.style.opacity='0'; toast.style.transition='opacity 0.3s'; setTimeout(()=>toast.remove(),300); }, duration);
 }
 
-function timeAgo(dateStr) {
+function toShamsi(dateStr) {
   if (!dateStr) return '';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 1) return 'همین الان';
-  if (m < 60) return `${m} دقیقه پیش`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h} ساعت پیش`;
-  return `${Math.floor(h/24)} روز پیش`;
+  try {
+    return new Intl.DateTimeFormat('fa-IR', {
+      year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(new Date(dateStr));
+  } catch(e) { return ''; }
 }
