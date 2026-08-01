@@ -1,40 +1,39 @@
 /* ═══════════════════════════════════════════
-   TRAGOS — Cloudflare R2 Upload
-   ⚠️ بعد از راه‌اندازی R2، این مقادیر رو پر کن
+   TRAGOS — Cloudinary Upload
+   رایگان، بدون کارت بانکی، ۲۵GB
+   ⚠️ بعد از ثبت‌نام در Cloudinary این مقادیر رو پر کن
 ═══════════════════════════════════════════ */
 
-// این مقادیر رو از Cloudflare R2 میگیری
-const R2_CONFIG = {
-  accountId:   'YOUR_ACCOUNT_ID',      // از Cloudflare dashboard
-  bucketName:  'tragos-gallery',        // نام bucket که می‌سازی
-  publicUrl:   'YOUR_R2_PUBLIC_URL',    // مثل: https://pub-xxxx.r2.dev
-  workerUrl:   'YOUR_WORKER_URL',       // آدرس Worker که می‌سازی
+const CLOUDINARY_CONFIG = {
+  cloudName:    'YOUR_CLOUD_NAME',    // از dashboard Cloudinary
+  uploadPreset: 'tragos_upload',      // بعد از ساخت preset این رو پر کن
 };
 
-/* ── آپلود به R2 از طریق Worker ── */
+/* ── آپلود به Cloudinary ── */
 async function uploadToR2(file, userId) {
-  const ext = file.name.split('.').pop().toLowerCase();
-  const fileName = `gallery/${userId}/${Date.now()}.${ext}`;
+  if (!isR2Ready()) throw new Error('Cloudinary تنظیم نشده');
 
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('key', fileName);
+  formData.append('upload_preset', CLOUDINARY_CONFIG.uploadPreset);
+  formData.append('folder', `tragos/gallery/${userId}`);
 
-  const response = await fetch(R2_CONFIG.workerUrl + '/upload', {
-    method: 'POST',
-    body: formData,
-  });
+  const res = await fetch(
+    `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.cloudName}/auto/upload`,
+    { method: 'POST', body: formData }
+  );
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error('خطا در آپلود: ' + err);
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error?.message || 'خطا در آپلود');
   }
 
-  const result = await response.json();
-  return R2_CONFIG.publicUrl + '/' + fileName;
+  const data = await res.json();
+  return data.secure_url;
 }
 
-/* ── چک کردن وضعیت R2 ── */
+/* ── چک کردن وضعیت ── */
 function isR2Ready() {
-  return R2_CONFIG.workerUrl !== 'YOUR_WORKER_URL';
+  return CLOUDINARY_CONFIG.cloudName !== 'YOUR_CLOUD_NAME' &&
+         CLOUDINARY_CONFIG.uploadPreset !== 'YOUR_UPLOAD_PRESET';
 }
