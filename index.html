@@ -237,16 +237,16 @@
 <!-- UPLOAD MODAL -->
 <div class="modal-overlay" id="upload-modal">
   <div class="modal-box">
-    <div class="modal-title">⬆️ آپلود اثر<span class="modal-close" onclick="closeModal('upload-modal')">×</span></div>
+    <div class="modal-title">⬆️ (حتما از فیلترشکن مناسب استفاده کنید) آپلود اثر<span class="modal-close" onclick="closeModal('upload-modal')">×</span></div>
     <div class="form-group">
-      <label class="form-label">فایل (JPG, PNG, MP4 — حداکثر ۱۵ مگ)</label>
+      <label class="form-label">فایل (JPG, PNG — حداکثر ۱۵ مگ)</label>
       <div class="upload-area" onclick="document.getElementById('upload-file').click()"
            ondragover="event.preventDefault();this.classList.add('drag-over')"
            ondragleave="this.classList.remove('drag-over')"
            ondrop="event.preventDefault();this.classList.remove('drag-over');document.getElementById('upload-file').files=event.dataTransfer.files;updateUploadPreview()">
         <div class="upload-icon">📁</div>
-        <div class="upload-text" id="upload-area-text">کلیک کنید یا فایل را اینجا بکشید</div>
-        <div class="upload-hint">JPG • PNG • MP4 — حداکثر ۱۵MB</div>
+        <div class="upload-text" id="upload-area-text">(حتما از فیلترشکن مناسب استفاده کنید) کلیک کنید یا فایل را اینجا بکشید</div>
+        <div class="upload-hint">JPG • PNG — حداکثر ۱۵MB</div>
       </div>
       <input type="file" id="upload-file" accept=".jpg,.jpeg,.png,.mp4" style="display:none" onchange="updateUploadPreview()">
     </div>
